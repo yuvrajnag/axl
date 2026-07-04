@@ -15,4 +15,4 @@ ACTION delete_note
   ENDPOINT DELETE /notes/{id}
   INPUT
     id: String REQUIRED
-  OUTPUT Any
+

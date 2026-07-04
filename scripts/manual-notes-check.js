@@ -6,7 +6,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 
 async function main() {
   console.log("=== 1. Registering a new user ===");
-  const regRes = await fetch("http://localhost:4100/api/auth/register", {
+  const regRes = await fetch("http://127.0.0.1:4100/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: `notes-user-${Date.now()}@axl.dev`, password: "pw" }),
@@ -20,7 +20,7 @@ async function main() {
   
   // Unauthenticated client
   const publicTransport = new StreamableHTTPClientTransport(
-    new URL("http://localhost:3941/mcp")
+    new URL("http://127.0.0.1:3941/mcp")
   );
   const publicClient = new Client({ name: "public-client", version: "1.0" });
   await publicClient.connect(publicTransport);
@@ -28,7 +28,7 @@ async function main() {
 
   // Authenticated client
   const authTransport = new StreamableHTTPClientTransport(
-    new URL("http://localhost:3941/mcp"),
+    new URL("http://127.0.0.1:3941/mcp"),
     { requestInit: { headers: { "Authorization": `Bearer sid=${sid}` } } }
   );
   const authClient = new Client({ name: "auth-client", version: "1.0" });
