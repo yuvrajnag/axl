@@ -1,0 +1,44 @@
+{
+  "name": "axl-monorepo",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "AXL — AI-native application specification language and compiler",
+  "workspaces": [
+    "packages/compiler",
+    "packages/cli",
+    "packages/generators"
+  ],
+  "scripts": {
+    "build": "tsc --build && npm run build --workspace=scl-axl",
+    "compile": "tsx packages/cli/index.ts compile",
+    "validate": "tsx packages/cli/index.ts validate",
+    "doctor": "tsx packages/cli/index.ts doctor",
+    "init": "tsx packages/cli/index.ts init",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:packaging": "node scripts/test-packaging.js"
+  },
+  "keywords": [
+    "axl",
+    "dsl",
+    "compiler",
+    "mcp",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^5.2.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.15.0",
+    "esbuild": "^0.28.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.0"
+  }
+}

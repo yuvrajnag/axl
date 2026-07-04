@@ -1,0 +1,24 @@
+APP banking
+NAME "SecureBank"
+VERSION 1.0.0
+DESCRIPTION "Core banking"
+FRAMEWORK NestJS
+LANGUAGE TypeScript
+DATABASE PostgreSQL
+BASE_URL https://api.bank.com
+
+ENTITY Account
+  id : String
+  balance : Number
+
+ACTION transfer
+  DESC "Transfer money"
+  INPUT
+    fromId : String REQUIRED
+    toId : String REQUIRED
+    amount : Number REQUIRED
+  OUTPUT Account
+  ENDPOINT POST /transfer
+
+PERMISSION transfer : AUTH
+CONFIRM transfer : OTP

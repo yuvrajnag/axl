@@ -1,0 +1,20 @@
+-- schema.flow
+
+ENTITY Product
+
+  id : String
+  name : String
+  brand : String
+  price : Number
+  rating : Float
+
+ENTITY CartItem
+
+  product_id : String
+  quantity : Number
+
+ENTITY Order
+
+  order_id : String
+  items : List<CartItem>
+  total : Number

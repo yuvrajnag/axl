@@ -1,0 +1,37 @@
+-- actions.flow
+
+ACTION search_products
+
+  DESC "Search products"
+
+  INPUT
+    query : String REQUIRED
+    max_price : Number OPTIONAL
+
+  OUTPUT List<Product>
+
+  ENDPOINT POST /search
+
+ACTION add_to_cart
+
+  DESC "Add product"
+
+  INPUT
+    product_id : String REQUIRED
+    quantity : Number REQUIRED
+
+  OUTPUT CartItem
+
+  ENDPOINT POST /cart/add
+
+ACTION checkout
+
+  DESC "Checkout"
+
+  INPUT
+    cart_id : String REQUIRED
+    address : String REQUIRED
+
+  OUTPUT Order
+
+  ENDPOINT POST /checkout

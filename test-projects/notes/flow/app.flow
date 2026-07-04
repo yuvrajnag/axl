@@ -1,0 +1,9 @@
+-- app.flow
+
+APP notes
+  DISPLAY NAME "NotesApp"
+  VERSION "1.0.0"
+  DESCRIPTION "A simple notes app"
+  FRAMEWORK "Express"
+  LANGUAGE "JavaScript"
+  BASE_URL "http://localhost:4100/api"

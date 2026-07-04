@@ -1,0 +1,6 @@
+{
+  "name": "hotel-empty",
+  "flowDir": "./flow",
+  "outDir": "./build",
+  "generatedDir": "./generated"
+}

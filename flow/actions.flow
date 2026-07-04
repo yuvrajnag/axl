@@ -1,0 +1,68 @@
+-- actions.flow
+
+ACTION list_projects
+
+  DESC "List all projects"
+
+  OUTPUT List<Project>
+
+  ENDPOINT GET /projects
+
+ACTION create_project
+
+  DESC "Create a project"
+
+  INPUT
+    name : String REQUIRED
+
+  OUTPUT Project
+
+  ENDPOINT POST /projects
+
+ACTION list_tasks
+
+  DESC "List project tasks"
+
+  INPUT
+    project_id : String REQUIRED
+    status : String OPTIONAL
+
+  OUTPUT List<Task>
+
+  ENDPOINT GET /projects/{project_id}/tasks
+
+ACTION create_task
+
+  DESC "Create task"
+
+  INPUT
+    project_id : String REQUIRED
+    title : String REQUIRED
+    due_date : String OPTIONAL
+
+  OUTPUT Task
+
+  ENDPOINT POST /projects/{project_id}/tasks
+
+ACTION update_task_status
+
+  DESC "Update task status"
+
+  INPUT
+    task_id : String REQUIRED
+    status : String REQUIRED
+
+  OUTPUT Task
+
+  ENDPOINT PATCH /tasks/{task_id}
+
+ACTION delete_task
+
+  DESC "Delete task"
+
+  INPUT
+    task_id : String REQUIRED
+
+  OUTPUT Null
+
+  ENDPOINT DELETE /tasks/{task_id}

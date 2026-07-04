@@ -1,0 +1,8 @@
+-- workflows.flow
+-- Workflow Definitions
+
+WORKFLOW UserOnboarding
+
+  STEP create_user
+
+END

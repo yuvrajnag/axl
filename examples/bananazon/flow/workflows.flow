@@ -1,0 +1,9 @@
+-- workflows.flow
+
+WORKFLOW Purchase
+
+  STEP search_products
+  STEP add_to_cart
+  STEP checkout
+
+END

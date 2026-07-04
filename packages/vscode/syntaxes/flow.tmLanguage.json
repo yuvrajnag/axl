@@ -1,0 +1,96 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "AXL Flow",
+  "scopeName": "source.flow",
+  "fileTypes": ["flow"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#versions" },
+    { "include": "#keywords-toplevel" },
+    { "include": "#keywords-section" },
+    { "include": "#keywords-modifier" },
+    { "include": "#keywords-permission" },
+    { "include": "#keywords-http" },
+    { "include": "#types-primitive" },
+    { "include": "#types-generic" },
+    { "include": "#punctuation" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment.line.double-dash.flow",
+      "match": "--.*$"
+    },
+    "strings": {
+      "name": "string.quoted.double.flow",
+      "begin": "\"",
+      "end": "\"",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.flow" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.string.end.flow" } },
+      "patterns": [
+        {
+          "name": "constant.character.escape.flow",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.flow",
+      "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+    },
+    "versions": {
+      "name": "constant.numeric.version.flow",
+      "match": "\\b[0-9]+\\.[0-9]+\\.[0-9]+\\b"
+    },
+    "keywords-toplevel": {
+      "name": "keyword.declaration.flow",
+      "match": "\\b(APP|ENTITY|ACTION|WORKFLOW)\\b"
+    },
+    "keywords-section": {
+      "name": "keyword.other.flow",
+      "match": "\\b(NAME|VERSION|DESCRIPTION|FRAMEWORK|LANGUAGE|DATABASE|BASE_URL|DESC|INPUT|OUTPUT|ENDPOINT|STEP|END|PERMISSION|CONFIRM|RATE_LIMIT)\\b"
+    },
+    "keywords-modifier": {
+      "name": "keyword.modifier.flow",
+      "match": "\\b(REQUIRED|OPTIONAL)\\b"
+    },
+    "keywords-permission": {
+      "name": "constant.language.flow",
+      "match": "\\b(PUBLIC|AUTH|OTP)\\b"
+    },
+    "keywords-http": {
+      "name": "keyword.operator.http.flow",
+      "match": "\\b(GET|POST|PUT|PATCH|DELETE)\\b"
+    },
+    "types-primitive": {
+      "name": "support.type.primitive.flow",
+      "match": "\\b(String|Number|Float|Boolean|Null)\\b"
+    },
+    "types-generic": {
+      "name": "support.type.generic.flow",
+      "match": "\\b(List)\\b"
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.colon.flow",
+          "match": ":"
+        },
+        {
+          "name": "punctuation.bracket.angle.flow",
+          "match": "[<>]"
+        },
+        {
+          "name": "punctuation.separator.slash.flow",
+          "match": "/"
+        }
+      ]
+    },
+    "identifiers": {
+      "name": "variable.other.flow",
+      "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+    }
+  }
+}

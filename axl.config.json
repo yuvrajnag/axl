@@ -1,0 +1,6 @@
+{
+  "name": "axl",
+  "flowDir": "./flow",
+  "outDir": "./build",
+  "generatedDir": "./generated"
+}

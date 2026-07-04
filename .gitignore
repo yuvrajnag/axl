@@ -1,0 +1,10 @@
+# AXL
+build/
+generated/
+node_modules/
+*.log
+dist/
+*.tgz
+.env
+*.env
+*.tsbuildinfo

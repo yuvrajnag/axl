@@ -1,0 +1,32 @@
+{
+  "name": "axl-flow",
+  "displayName": "AXL Flow Language",
+  "description": "Syntax highlighting, language support, and diagnostics for the AXL .flow specification language",
+  "version": "1.0.0",
+  "publisher": "axl",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "flow",
+        "aliases": ["AXL Flow", "flow"],
+        "extensions": [".flow"],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/flow-light.png",
+          "dark": "./icons/flow-dark.png"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "flow",
+        "scopeName": "source.flow",
+        "path": "./syntaxes/flow.tmLanguage.json"
+      }
+    ]
+  }
+}
