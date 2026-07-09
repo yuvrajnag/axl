@@ -4,6 +4,22 @@ import crypto from "crypto";
 const app = express();
 app.use(express.json());
 
+// ---- test instrumentation: request counter for idempotency verification ----
+let __testCallCount = 0;
+app.use((req, res, next) => {
+  if (req.method === "POST" && req.path === "/api/projects") {
+    __testCallCount++;
+  }
+  next();
+});
+app.get("/__test/call-count", (req, res) => {
+  res.json({ count: __testCallCount });
+});
+app.post("/__test/reset-count", (req, res) => {
+  __testCallCount = 0;
+  res.json({ count: 0 });
+});
+
 // ---- in-memory "database" ----
 const users = new Map();        // email -> { id, password }
 const sessions = new Map();     // sessionId -> userId
@@ -110,5 +126,6 @@ app.delete("/api/tasks/:id", auth, (req, res) => {
   res.status(204).end();
 });
 
-const PORT = 4000;
-app.listen(PORT, () => console.log(`Test TaskDeck backend running on http://localhost:${PORT}`));
+const PORT = process.env.TEST_PORT || 4000;
+const server = app.listen(PORT, () => console.log(`Test TaskDeck backend running on http://localhost:${PORT}`));
+export { app, server, PORT };
