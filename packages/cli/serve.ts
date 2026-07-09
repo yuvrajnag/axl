@@ -5,7 +5,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { randomUUID } from "crypto";
 // @ts-ignore
-import { buildAxlServer } from "../../src/mcp-server.js";
+import { buildAxlServer } from "../../src/axl-server.js";
 import { c } from "./ui.js";
 
 // Storage for per-request context (like session cookie)

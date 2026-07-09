@@ -138,6 +138,8 @@ function initGit(dir: string): void {
 }
 
 function checkVSCode(): boolean {
+  if (process.env.AXL_MOCK_VSCODE === "true") return true;
+  if (process.env.AXL_MOCK_VSCODE === "false") return false;
   try {
     execSync("code --version", { stdio: "ignore" });
     return true;

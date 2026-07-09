@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { buildAxlServer } from "../src/mcp-server.js";
+import { buildAxlServer } from "../src/axl-server.js";
 
 const APP_FLOW = new URL("../build/manifest.json", import.meta.url).pathname;
 

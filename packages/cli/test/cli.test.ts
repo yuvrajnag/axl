@@ -6,9 +6,9 @@ import { execSync } from "node:child_process";
 const CLI_PATH = path.resolve(__dirname, "../dist/index.js");
 const TEST_DIR = path.resolve(__dirname, "../.tmp-test");
 
-function run(args: string, cwd = TEST_DIR): { stdout: string; stderr: string; status: number } {
+function run(args: string, cwd = TEST_DIR, env?: Record<string, string>): { stdout: string; stderr: string; status: number } {
   try {
-    const stdout = execSync(`node ${CLI_PATH} ${args}`, { cwd, encoding: "utf-8", stdio: "pipe" });
+    const stdout = execSync(`node ${CLI_PATH} ${args}`, { cwd, encoding: "utf-8", stdio: "pipe", env: { ...process.env, ...env } });
     return { stdout, stderr: "", status: 0 };
   } catch (err: any) {
     return { stdout: err.stdout ?? "", stderr: err.stderr ?? "", status: err.status ?? 1 };
@@ -30,14 +30,12 @@ describe("AXL CLI", () => {
   // ─── axl init ───────────────────────────────────────────────────────────────
 
   describe("axl init", () => {
-    it("should scaffold a project with --yes (non-interactive)", () => {
+    it("should scaffold a project with --yes (non-interactive) when VS Code is present", () => {
       const initDir = path.join(TEST_DIR, "myproject");
       fs.mkdirSync(initDir, { recursive: true });
 
-      const stdout = execSync(`node ${CLI_PATH} init ${initDir} --yes`, {
-        cwd: TEST_DIR,
-        encoding: "utf-8",
-      });
+      const result = run(`init ${initDir} --yes`, TEST_DIR, { AXL_MOCK_VSCODE: "true" });
+      const stdout = result.stdout;
 
       // The project name defaults to the directory basename
       expect(stdout).toContain("myproject");
@@ -50,8 +48,24 @@ describe("AXL CLI", () => {
       expect(fs.existsSync(path.join(initDir, "flow/workflows.flow"))).toBe(true);
       expect(fs.existsSync(path.join(initDir, "flow/auth.flow"))).toBe(true);
       expect(fs.existsSync(path.join(initDir, "axl.config.json"))).toBe(true);
-      expect(fs.existsSync(path.join(initDir, ".vscode/settings.json"))).toBe(true);
       expect(fs.existsSync(path.join(initDir, ".gitignore"))).toBe(true);
+      
+      // VS Code settings should be created
+      expect(fs.existsSync(path.join(initDir, ".vscode/settings.json"))).toBe(true);
+    });
+
+    it("should scaffold a project with --yes (non-interactive) without VS Code", () => {
+      const initDir = path.join(TEST_DIR, "myproject-novscode");
+      fs.mkdirSync(initDir, { recursive: true });
+
+      const result = run(`init ${initDir} --yes`, TEST_DIR, { AXL_MOCK_VSCODE: "false" });
+      const stdout = result.stdout;
+
+      expect(stdout).toContain("myproject");
+      expect(stdout).toContain("created successfully");
+
+      // VS Code settings should NOT be created
+      expect(fs.existsSync(path.join(initDir, ".vscode/settings.json"))).toBe(false);
     });
 
     it("should create app.flow with GENERATORS block", () => {
