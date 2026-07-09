@@ -121,6 +121,7 @@ export const HTTP_METHODS = new Set<string>(["GET", "POST", "PUT", "PATCH", "DEL
 export const RESERVED_GENERATORS = new Set([
   "MCP",
   "OPENAPI",
+  "DIAGRAM",
   "AGENT",
   "DOCS",
   "SDK_TS",

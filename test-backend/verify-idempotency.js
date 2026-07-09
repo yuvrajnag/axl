@@ -47,6 +47,7 @@ async function registerUser() {
 // ---- main ----
 async function main() {
   // 1. Boot the real backend on a test port
+  process.env.NODE_ENV = "test";
   process.env.TEST_PORT = "4777";
   const { server } = await import("./server.js");
 
