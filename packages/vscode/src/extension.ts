@@ -27,7 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!wordRange) return null;
 
       const word = document.getText(wordRange);
-      const ast = parseWorkspaceFlowFiles();
+      const ast = parseWorkspaceFlowFiles(document.uri);
       if (!ast) return null;
 
       const info = getHoverInfo(word, ast);
@@ -41,10 +41,10 @@ export function activate(context: vscode.ExtensionContext) {
   // -- Diagnostics ----------------------------------------------------------
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
-  function runDiagnostics() {
-    const sources = readWorkspaceFlowSources();
+  function runDiagnostics(docUri?: vscode.Uri) {
+    const sources = readWorkspaceFlowSources(docUri);
     if (!sources) {
-      diagnosticCollection.clear();
+      if (!docUri) diagnosticCollection.clear();
       return;
     }
 
@@ -76,29 +76,32 @@ export function activate(context: vscode.ExtensionContext) {
 
     diagnosticCollection.clear();
 
-    const flowDir = findFlowDir();
+    const flowDir = findFlowDir(docUri);
     if (!flowDir) return;
 
+    // Clear diagnostics only for the files we are updating in this flow dir
+    // Wait, the easiest way is to clear and reset, but we might have multiple flow dirs.
+    // We'll just reset for the files we found.
     for (const [fileName, vsdiags] of fileMap) {
       const uri = vscode.Uri.file(path.join(flowDir, fileName));
       diagnosticCollection.set(uri, vsdiags);
     }
   }
 
-  function scheduleDiagnostics() {
+  function scheduleDiagnostics(docUri: vscode.Uri) {
     if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(runDiagnostics, 500);
+    debounceTimer = setTimeout(() => runDiagnostics(docUri), 500);
   }
 
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
-      if (doc.languageId === "flow") runDiagnostics();
+      if (doc.languageId === "flow") runDiagnostics(doc.uri);
     }),
     vscode.workspace.onDidOpenTextDocument((doc) => {
-      if (doc.languageId === "flow") runDiagnostics();
+      if (doc.languageId === "flow") runDiagnostics(doc.uri);
     }),
     vscode.workspace.onDidChangeTextDocument((e) => {
-      if (e.document.languageId === "flow") scheduleDiagnostics();
+      if (e.document.languageId === "flow") scheduleDiagnostics(e.document.uri);
     }),
   );
 
@@ -128,19 +131,30 @@ export function deactivate() {}
 // Helpers
 // ---------------------------------------------------------------------------
 
-function findFlowDir(): string | null {
+function findFlowDir(docUri?: vscode.Uri): string | null {
+  if (docUri) {
+    const dir = path.dirname(docUri.fsPath);
+    if (path.basename(dir) === "flow") {
+      return dir;
+    }
+  }
+
   const folders = vscode.workspace.workspaceFolders;
   if (!folders || folders.length === 0) return null;
 
   for (const folder of folders) {
+    // If the workspace root itself is the flow dir
+    if (path.basename(folder.uri.fsPath) === "flow") {
+      return folder.uri.fsPath;
+    }
     const flowDir = path.join(folder.uri.fsPath, "flow");
     if (fs.existsSync(flowDir)) return flowDir;
   }
   return null;
 }
 
-function readWorkspaceFlowSources(): Record<string, string> | null {
-  const flowDir = findFlowDir();
+function readWorkspaceFlowSources(docUri?: vscode.Uri): Record<string, string> | null {
+  const flowDir = findFlowDir(docUri);
   if (!flowDir) return null;
 
   const sources: Record<string, string> = {};
@@ -156,8 +170,8 @@ function readWorkspaceFlowSources(): Record<string, string> | null {
   return Object.keys(sources).length > 0 ? sources : null;
 }
 
-function parseWorkspaceFlowFiles(): ProjectAST | null {
-  const sources = readWorkspaceFlowSources();
+function parseWorkspaceFlowFiles(docUri?: vscode.Uri): ProjectAST | null {
+  const sources = readWorkspaceFlowSources(docUri);
   if (!sources) return null;
 
   let appNode: AppNode | undefined;

@@ -2,7 +2,17 @@
 // packages/vscode/src/hover.ts — Pure hover-info lookup (no VS Code deps)
 // ============================================================================
 
-import type { ProjectAST, ActionNode, EntityNode } from "@axl/compiler";
+import type { ProjectAST, ActionNode, EntityNode, AppNode, WorkflowNode } from "@axl/compiler";
+
+const keywordHovers: Record<string, string> = {
+  APP: "**APP**\n\nDefines the application name and configuration.",
+  ENTITY: "**ENTITY**\n\nDefines a data model/schema.",
+  ACTION: "**ACTION**\n\nDefines a business logic action or API endpoint.",
+  WORKFLOW: "**WORKFLOW**\n\nDefines a sequence of actions.",
+  PERMISSION: "**PERMISSION**\n\nDefines authorization requirements for an action.",
+  CONFIRM: "**CONFIRM**\n\nDefines confirmation mechanisms like OTP.",
+  RATE_LIMIT: "**RATE_LIMIT**\n\nDefines rate limits for an action."
+};
 
 /**
  * Look up hover information for a word in the context of a parsed ProjectAST.
@@ -21,7 +31,48 @@ export function getHoverInfo(word: string, ast: ProjectAST): string | null {
     return formatEntityHover(entity);
   }
 
+  // Check app
+  if (ast.app && ast.app.name === word) {
+    return formatAppHover(ast.app);
+  }
+
+  // Check workflows
+  const workflow = ast.workflows.find(w => w.name === word);
+  if (workflow) {
+    return formatWorkflowHover(workflow);
+  }
+
+  // Check keywords
+  if (keywordHovers[word]) {
+    return keywordHovers[word];
+  }
+
   return null;
+}
+
+function formatAppHover(app: AppNode): string {
+  const lines: string[] = [];
+  lines.push(`**APP** \`${app.name}\``);
+  lines.push("");
+  if (app.description) lines.push(`${app.description}\n`);
+  lines.push(`- **Framework:** \`${app.framework}\``);
+  lines.push(`- **Language:** \`${app.language}\``);
+  lines.push(`- **Database:** \`${app.database}\``);
+  if (app.baseUrl) lines.push(`- **Base URL:** \`${app.baseUrl}\``);
+  return lines.join("\n").trim();
+}
+
+function formatWorkflowHover(workflow: WorkflowNode): string {
+  const lines: string[] = [];
+  lines.push(`**WORKFLOW** \`${workflow.name}\``);
+  lines.push("");
+  if (workflow.steps.length > 0) {
+    lines.push("**Steps**");
+    for (const step of workflow.steps) {
+      lines.push(`- \`${step.actionRef}\``);
+    }
+  }
+  return lines.join("\n").trim();
 }
 
 function formatActionHover(action: ActionNode, ast: ProjectAST): string {

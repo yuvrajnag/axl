@@ -4,12 +4,22 @@
   "description": "Syntax highlighting, hover tooltips, inline diagnostics, snippets, and format-on-save for the AXL .flow specification language",
   "version": "0.2.0",
   "publisher": "axl",
+  "icon": "icons/flow-dark.png",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.75.0"
   },
   "categories": ["Programming Languages", "Linters", "Formatters", "Snippets"],
   "main": "./dist/extension.js",
-  "activationEvents": ["onLanguage:flow"],
+  "files": [
+    "dist",
+    "syntaxes",
+    "snippets",
+    "language-configuration.json",
+    "icons"
+  ],
+  "activationEvents": [
+    "onLanguage:flow"
+  ],
   "contributes": {
     "languages": [
       {
@@ -43,7 +53,7 @@
   },
   "devDependencies": {
     "@axl/compiler": "0.1.0",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.60.0",
     "esbuild": "^0.28.1"
   }
 }

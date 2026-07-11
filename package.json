@@ -11,7 +11,7 @@
     "packages/vscode"
   ],
   "scripts": {
-    "build": "tsc --build && npm run build --workspace=scl-axl",
+    "build": "tsc --build && npm run build --workspace=scl-axl && npm run build --workspace=axl-flow",
     "compile": "tsx packages/cli/index.ts compile",
     "validate": "tsx packages/cli/index.ts validate",
     "doctor": "tsx packages/cli/index.ts doctor",

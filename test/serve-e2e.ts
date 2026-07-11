@@ -80,7 +80,7 @@ async function runTest() {
     name: "create_project",
     arguments: { name: "User 1 Project" }
   });
-  const project1 = JSON.parse(c1Res.content[0].text);
+  const project1 = JSON.parse((c1Res.content as any)[0].text);
   console.log("Client 1 project:", project1);
 
   // Client 2 creates a project
@@ -88,7 +88,7 @@ async function runTest() {
     name: "create_project",
     arguments: { name: "User 2 Project" }
   });
-  const project2 = JSON.parse(c2Res.content[0].text);
+  const project2 = JSON.parse((c2Res.content as any)[0].text);
   console.log("Client 2 project:", project2);
 
   // Now client 1 lists projects, should only see theirs
@@ -96,7 +96,7 @@ async function runTest() {
     name: "list_projects",
     arguments: {}
   });
-  const projects = JSON.parse(listRes.content[0].text);
+  const projects = JSON.parse((listRes.content as any)[0].text);
   console.log("Client 1 sees projects:", projects);
   
   if (projects.some((p: any) => p.name === "User 2 Project")) {
@@ -112,7 +112,7 @@ async function runTest() {
       title: "Task to delete"
     }
   });
-  const taskToDelete = JSON.parse(createTaskRes.content[0].text);
+  const taskToDelete = JSON.parse((createTaskRes.content as any)[0].text);
   
   // Client 1 runs ProjectDeletion workflow which requires OTP
   const wfRes = await client1.callTool({
@@ -122,7 +122,7 @@ async function runTest() {
       initialArgs: { task_id: taskToDelete.id }
     }
   });
-  const wfState = JSON.parse(wfRes.content[0].text);
+  const wfState = JSON.parse((wfRes.content as any)[0].text);
   console.log("Workflow Paused State:", wfState);
   
   if (!wfState.confirmationRequired) {
@@ -137,7 +137,7 @@ async function runTest() {
       otp: wfState.otp_demo_only
     }
   });
-  const resumeState = JSON.parse(resumeRes.content[0].text);
+  const resumeState = JSON.parse((resumeRes.content as any)[0].text);
   console.log("Workflow Resumed State:", resumeState);
   
   if (resumeState.status !== "COMPLETED") {
