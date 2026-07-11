@@ -2,13 +2,13 @@
 
 WORKFLOW ProjectCreation
 
-  STEP create_project
+STEP create_project
 
 WORKFLOW TaskLifecycle
 
-  STEP create_task
-  STEP update_task_status
+STEP create_task
+STEP update_task_status
 
 WORKFLOW ProjectDeletion
 
-  STEP delete_task
+STEP delete_task

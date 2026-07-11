@@ -9,6 +9,13 @@ import { doctor } from "./doctor.js";
 import { init } from "./init.js";
 import { generate } from "./generate.js";
 import { serve } from "./serve.js";
+import { build } from "./build.js";
+import { dev } from "./dev.js";
+import { info } from "./info.js";
+import { clean } from "./clean.js";
+import { format } from "./format.js";
+import { lint } from "./lint.js";
+import { configCmd } from "./config_cmd.js";
 import { findProjectRoot, loadConfig, resolvePaths } from "./config.js";
 import { c, icons, blank, errorBlock, didYouMean, env, warn } from "./ui.js";
 import { GeneratorRegistry } from "@axl/generators";
@@ -72,7 +79,7 @@ const HELP = () => {
 
     ${c.secondary("axl init  ·  axl compile  ·  axl doctor")}
 
-  ${c.secondary("docs " + icons.arrow)} ${c.accent("axl.dev")}
+  ${c.secondary("docs " + icons.arrow)} ${c.accent("github.com/yuvrajnag/axl")}
 `;
 };
 
@@ -208,13 +215,25 @@ async function main(): Promise<void> {
         await doctor(paths.flowDir);
         break;
       case "build":
+        await build(paths.flowDir, paths.outDir);
+        break;
       case "dev":
+        await dev(paths.flowDir, paths.outDir);
+        break;
       case "info":
+        await info(config, paths);
+        break;
       case "clean":
+        await clean(paths.outDir, paths.generatedDir || path.join(projectRoot, "generated"));
+        break;
       case "format":
+        await format(paths.flowDir);
+        break;
       case "lint":
+        await lint(paths.flowDir);
+        break;
       case "config":
-        warn(`Command '${args.command}' is not fully implemented yet.`);
+        await configCmd(projectRoot, args.positional);
         break;
     }
   } catch (err) {

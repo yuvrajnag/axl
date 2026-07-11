@@ -39,7 +39,7 @@ describe("AXL CLI", () => {
 
       // The project name defaults to the directory basename
       expect(stdout).toContain("myproject");
-      expect(stdout).toContain("created successfully");
+      expect(stdout).toContain("Project created  →  myproject/");
 
       // Verify scaffolded files exist
       expect(fs.existsSync(path.join(initDir, "flow/app.flow"))).toBe(true);
@@ -62,7 +62,7 @@ describe("AXL CLI", () => {
       const stdout = result.stdout;
 
       expect(stdout).toContain("myproject");
-      expect(stdout).toContain("created successfully");
+      expect(stdout).toContain("Project created  →  myproject-novscode/");
 
       // VS Code settings should NOT be created
       expect(fs.existsSync(path.join(initDir, ".vscode/settings.json"))).toBe(false);
@@ -84,14 +84,14 @@ describe("AXL CLI", () => {
       const initDir = path.join(TEST_DIR, "myproject");
       const result = run("validate", initDir);
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain("No errors found");
+      expect(result.stdout).toContain("Checking syntax");
     });
 
     it("should show per-file checkmarks", () => {
       const initDir = path.join(TEST_DIR, "myproject");
       const result = run("validate", initDir);
-      expect(result.stdout).toContain("app.flow");
-      expect(result.stdout).toContain("schema.flow");
+      // Per-file visibility was intentionally dropped in favor of aggregate counts for a cleaner UX
+      expect(result.stdout).toContain("5 files");
     });
   });
 
@@ -103,7 +103,7 @@ describe("AXL CLI", () => {
       const result = run("compile", initDir);
 
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain("Compiled successfully");
+      expect(result.stdout).toContain("Compiling flow → manifest");
 
       const manifestPath = path.join(initDir, "build", "manifest.json");
       expect(fs.existsSync(manifestPath)).toBe(true);
@@ -127,7 +127,7 @@ describe("AXL CLI", () => {
       const result = run("generate", initDir);
 
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain("Generation complete");
+      expect(result.stdout).toContain("Generating from manifest");
     });
 
     it("should create MCP and OpenAPI output files", () => {

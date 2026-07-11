@@ -61,7 +61,7 @@ export async function generate(flowDir: string, outDir: string): Promise<void> {
     console.log(`      ${c.plain("MCP")}`);
     console.log(`      ${c.plain("OPENAPI")}`);
     blank();
-    process.exit(0);
+    return;
   }
 
   const generatedDir = path.resolve("generated");

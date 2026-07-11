@@ -158,11 +158,11 @@ export async function doctor(flowDir: string): Promise<void> {
   blank();
 
   if (fails > 0) {
-    console.log(`  ${c.error(fails.toString() + " errors")} · run axl doctor --fix for details`);
+    console.log(`  ${c.error(fails.toString() + " errors")}`);
     blank();
     process.exit(1);
   } else if (warns > 0) {
-    console.log(`  ${c.warning("⚠ " + warns.toString() + " warnings")} · axl doctor --fix for details`);
+    console.log(`  ${c.warning("⚠ " + warns.toString() + " warnings")}`);
     blank();
   } else {
     console.log(`  ${c.success("✔")} ${c.primary("Everything looks healthy!")}`);

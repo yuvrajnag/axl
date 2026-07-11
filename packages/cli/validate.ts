@@ -15,8 +15,8 @@ const FLOW_FILES = [
   "auth.flow",
 ];
 
-export async function validate(flowDir: string): Promise<void> {
-  if (!env.isQuiet) {
+export async function validate(flowDir: string, skipSection = false): Promise<void> {
+  if (!skipSection && !env.isQuiet) {
     section("Validating flow files");
   }
 
