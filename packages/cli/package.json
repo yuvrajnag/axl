@@ -13,13 +13,12 @@
   ],
   "author": "Silver Cloud Labs",
   "license": "MIT",
-  "homepage": "https://axl.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/silvercloudlabs/axl.git"
+    "url": "https://github.com/yuvrajnag/axl.git"
   },
   "bugs": {
-    "url": "https://github.com/silvercloudlabs/axl/issues"
+    "url": "https://github.com/yuvrajnag/axl/issues"
   },
   "type": "module",
   "main": "dist/index.js",

@@ -19,6 +19,7 @@ import { generate } from "./generate.js";
 import { serve } from "./serve.js";
 import { findProjectRoot, loadConfig, resolvePaths } from "./config.js";
 import { c, icons, blank, errorBox, didYouMean } from "./ui.js";
+import { GeneratorRegistry } from "@axl/generators";
 
 // ---------------------------------------------------------------------------
 // Version
@@ -30,7 +31,9 @@ const VERSION = "0.1.0";
 // Help text
 // ---------------------------------------------------------------------------
 
-const HELP = `
+const HELP = () => {
+  const genList = [...GeneratorRegistry.keys()].join(", ");
+  return `
   ${c.brightCyan}${c.bold}AXL${c.reset} ${c.dim}v${VERSION}${c.reset}  ${c.dim}AI-native application specification language${c.reset}
 
   ${c.bold}Usage${c.reset}
@@ -41,15 +44,15 @@ const HELP = `
     ${c.cyan}validate${c.reset}    Parse and validate all .flow files
     ${c.cyan}compile${c.reset}     Compile .flow files to build/manifest.json
     ${c.cyan}serve${c.reset}       Start the AXL server (MCP over HTTP)
-    ${c.cyan}generate${c.reset}    Run configured generators (MCP, OpenAPI)
+    ${c.cyan}generate${c.reset}    Run configured generators (${genList})
     ${c.cyan}doctor${c.reset}      Check installation and project health
 
   ${c.bold}Options${c.reset}
     ${c.cyan}--dir${c.reset} <path>    Path to .flow directory   ${c.dim}(default: ./flow)${c.reset}
     ${c.cyan}--out${c.reset} <path>    Output directory          ${c.dim}(default: ./build)${c.reset}
     ${c.cyan}--verbose${c.reset}       Show detailed output
-    ${c.cyan}--help${c.reset}, ${c.cyan}-h${c.reset}     Show this help message
-    ${c.cyan}--version${c.reset}, ${c.cyan}-v${c.reset}  Show version
+    ${c.cyan}--help${c.reset}, ${c.cyan}-h${c.reset}      Show this help message
+    ${c.cyan}--version${c.reset}, ${c.cyan}-v${c.reset}   Show version
 
   ${c.bold}Examples${c.reset}
     ${c.dim}$${c.reset} axl init hotel-booking
@@ -57,12 +60,15 @@ const HELP = `
     ${c.dim}$${c.reset} axl compile
     ${c.dim}$${c.reset} axl generate
 `;
+};
 
 // ---------------------------------------------------------------------------
 // Per-command help
 // ---------------------------------------------------------------------------
 
-const COMMAND_HELP: Record<string, string> = {
+const COMMAND_HELP = () => {
+  const genList = [...GeneratorRegistry.keys()].join(", ");
+  return {
   init: `
   ${c.brightCyan}${c.bold}axl init${c.reset}  ${c.dim}— Scaffold a new AXL project${c.reset}
 
@@ -126,7 +132,7 @@ const COMMAND_HELP: Record<string, string> = {
 
   ${c.bold}Description${c.reset}
     Reads the compiled manifest.json and runs the configured
-    generators (MCP, OpenAPI, etc.) to produce AI artifacts.
+    generators (${genList}) to produce AI artifacts.
 
   ${c.bold}Options${c.reset}
     ${c.cyan}--out${c.reset} <path>   Build directory with manifest.json ${c.dim}(default: ./build)${c.reset}
@@ -149,6 +155,7 @@ const COMMAND_HELP: Record<string, string> = {
   ${c.bold}Examples${c.reset}
     ${c.dim}$${c.reset} axl doctor
 `,
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -172,9 +179,9 @@ function parseArgs(raw: string[]): ParsedArgs {
   // First non-flag argument is the command
   while (i < raw.length) {
     const arg = raw[i]!;
-    if (arg.startsWith("--")) {
+    if (arg.startsWith("-")) {
       const next = raw[i + 1];
-      if (next && !next.startsWith("--")) {
+      if (next && !next.startsWith("-")) {
         flags.set(arg, next);
         i += 2;
       } else {
@@ -213,10 +220,11 @@ async function main(): Promise<void> {
   if (!args.command || args.booleans.has("--help") || args.booleans.has("-h") || args.command === "help") {
     // Command-specific help: `axl help compile` or `axl compile --help`
     const helpTarget = args.command === "help" ? args.positional[0] : args.command;
-    if (helpTarget && helpTarget !== "help" && COMMAND_HELP[helpTarget]) {
-      console.log(COMMAND_HELP[helpTarget]);
+    const commandHelp = COMMAND_HELP();
+    if (helpTarget && helpTarget !== "help" && (helpTarget in commandHelp)) {
+      console.log(commandHelp[helpTarget as keyof typeof commandHelp]);
     } else {
-      console.log(HELP);
+      console.log(HELP());
     }
     process.exit(0);
   }
@@ -231,6 +239,22 @@ async function main(): Promise<void> {
       fix,
     );
     process.exit(1);
+  }
+
+  // Validate flags
+  const KNOWN_FLAGS = ["--dir", "--out", "--verbose", "--help", "-h", "--version", "-v", "--yes", "-y", "--port"];
+  const allFlags = [...args.flags.keys(), ...args.booleans.keys()];
+  for (const flag of allFlags) {
+    if (!KNOWN_FLAGS.includes(flag)) {
+      const suggestion = didYouMean(flag, KNOWN_FLAGS);
+      const fix = suggestion ? [`Did you mean ${c.cyan}${suggestion}${c.reset}?`] : [];
+      errorBox(
+        `Unknown option: ${flag}`,
+        [`Run ${c.cyan}axl --help${c.reset} to see available options.`],
+        fix,
+      );
+      process.exit(1);
+    }
   }
 
   // Resolve project paths

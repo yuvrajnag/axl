@@ -20,7 +20,6 @@ export async function generate(flowDir: string, outDir: string): Promise<void> {
       "Manifest not found",
       [
         `Expected: ${c.dim}${manifestPath}${c.reset}`,
-        "",
         "The manifest is produced by the compiler. You need to compile",
         "your .flow files before running generators.",
       ],
