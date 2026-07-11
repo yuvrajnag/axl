@@ -6,9 +6,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import prompts from "prompts";
-import * as ui from "./ui.js";
-import { c, icons, Spinner } from "./ui.js";
+import { c, icons, brand, section, stepList, blank, errorMsg, warn } from "./ui.js";
 import { writeConfig, type AxlConfig } from "./config.js";
+
+// Override prompts symbols to match AXL theme exactly
+// @ts-ignore
+const promptsStyle = require("prompts/lib/util/style.js");
+promptsStyle.symbol = (done: boolean, aborted: boolean) => {
+  if (aborted) return `  ${c.error(icons.error)}`;
+  if (done) return `  ${c.success(icons.success)}`;
+  return `  ${c.accent(icons.arrow)}`;
+};
 
 // ---------------------------------------------------------------------------
 // Templates
@@ -153,7 +161,8 @@ function checkVSCode(): boolean {
 // ---------------------------------------------------------------------------
 
 export async function init(targetDir: string, skipPrompts = false): Promise<void> {
-  ui.logo();
+  brand();
+  section("Create New Project");
 
   const root = path.resolve(targetDir);
   const defaultName = path.basename(root);
@@ -165,6 +174,9 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
   let initGitRepo = false;
 
   if (!skipPrompts) {
+    // Override prompts theme
+    prompts.override({}); // Reset any existing overrides
+
     const response = await prompts([
       {
         type: 'text',
@@ -230,7 +242,8 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
       }
     ], {
       onCancel: () => {
-        ui.error("Initialization cancelled.");
+        blank();
+        errorMsg("Initialization cancelled.");
         process.exit(1);
       }
     });
@@ -250,23 +263,31 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
   }
 
   try {
-    ui.blank();
-    const spinner = new Spinner();
-    spinner.start("Creating project...");
+    blank();
+    const stepsArr = [
+      "Creating directories",
+      "Generating Flow files",
+      "Writing configuration",
+      "Preparing workspace"
+    ];
+    if (initGitRepo) stepsArr.push("Initializing Git");
 
+    const steps = stepList(stepsArr);
+
+    let idx = 0;
+    
+    // Creating directories
+    steps.update(idx, "active");
     const flowDir = path.join(root, "flow");
     const buildDir = path.join(root, "build");
     const generatedDir = path.join(root, "generated");
-
-    // Give the spinner some time to show
-    await new Promise(r => setTimeout(r, 400));
-
-    // Create directories
     fs.mkdirSync(flowDir, { recursive: true });
     fs.mkdirSync(buildDir, { recursive: true });
     fs.mkdirSync(generatedDir, { recursive: true });
+    steps.update(idx++, "done");
 
-    // Write .flow files
+    // Generating Flow files
+    steps.update(idx, "active");
     if (flowTemplate === 'Starter') {
       writeIfNew(path.join(flowDir, "app.flow"), appTemplate(projectName, framework, language, database));
       writeIfNew(path.join(flowDir, "schema.flow"), SCHEMA_TEMPLATE);
@@ -280,8 +301,10 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
       writeIfNew(path.join(flowDir, "workflows.flow"), "");
       writeIfNew(path.join(flowDir, "auth.flow"), "");
     }
+    steps.update(idx++, "done");
 
-    // Write axl.config.json
+    // Writing configuration
+    steps.update(idx, "active");
     const config: AxlConfig = {
       name: projectName,
       flowDir: "./flow",
@@ -289,8 +312,10 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
       generatedDir: "./generated",
     };
     writeConfig(root, config);
+    steps.update(idx++, "done");
 
-    // VS Code
+    // Preparing workspace
+    steps.update(idx, "active");
     let vsCodeMsg = "";
     if (checkVSCode()) {
       const vscodeDir = path.join(root, ".vscode");
@@ -299,7 +324,6 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
       vsCodeMsg = "AXL VS Code extension is not yet published.";
     }
 
-    // .gitignore
     const gitignorePath = path.join(root, ".gitignore");
     if (fs.existsSync(gitignorePath)) {
       const existing = fs.readFileSync(gitignorePath, "utf-8");
@@ -309,51 +333,38 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
     } else {
       fs.writeFileSync(gitignorePath, GITIGNORE_ADDITIONS.trim() + "\n", "utf-8");
     }
+    steps.update(idx++, "done");
 
     if (initGitRepo) {
+      steps.update(idx, "active");
       initGit(root);
+      steps.update(idx++, "done");
     }
-
-    spinner.stop(`Project "${projectName}" created successfully.\n`);
-
-    ui.blank();
-    console.log(`  ${c.dim}Created${c.reset}`);
-    ui.blank();
-    console.log(`  ${c.green}${icons.success}${c.reset} app.flow`);
-    console.log(`  ${c.green}${icons.success}${c.reset} schema.flow`);
-    console.log(`  ${c.green}${icons.success}${c.reset} actions.flow`);
-    console.log(`  ${c.green}${icons.success}${c.reset} workflows.flow`);
-    console.log(`  ${c.green}${icons.success}${c.reset} auth.flow`);
-    console.log(`  ${c.green}${icons.success}${c.reset} axl.config.json`);
     
-    if (initGitRepo) {
-      console.log(`  ${c.green}${icons.success}${c.reset} .git/`);
-    }
+    steps.stop();
 
-    ui.blank();
-    console.log(`  ${c.dim}Location${c.reset}`);
-    ui.blank();
-    console.log(`  ${root}`);
-    ui.blank();
+    blank();
+    console.log(`  ${c.success(icons.success)} ${c.primary("Project created")}  ${c.secondary("→")}  ${c.plain(projectName + "/")}`);
+    blank();
+    console.log(`  ${c.primary("Next steps")}`);
+    blank();
 
-    if (vsCodeMsg) {
-      ui.warn(vsCodeMsg);
-      ui.blank();
-    }
-
-    console.log(`  ${c.dim}Next steps${c.reset}`);
-    ui.blank();
+    const nextSteps = [];
     if (root !== process.cwd()) {
-      const relPath = path.relative(process.cwd(), root);
-      console.log(`    cd ${relPath}`);
-      ui.blank();
+      nextSteps.push(`cd ${path.relative(process.cwd(), root) || projectName}`);
     }
-    console.log("    axl validate");
-    console.log("    axl compile");
-    console.log("    axl generate");
-    ui.blank();
-    console.log(`  Ready to build AI-native applications.`);
-    ui.blank();
+    nextSteps.push("axl doctor");
+    nextSteps.push("axl compile");
+
+    for (const step of nextSteps) {
+      console.log(`  ${c.accent(icons.arrow)} ${c.plain(step)}`);
+    }
+    if (vsCodeMsg) {
+      blank();
+      warn(vsCodeMsg);
+    }
+    blank();
+
   } catch (e) {
     console.error(e);
     process.exit(1);

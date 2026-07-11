@@ -6,8 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import { GeneratorRegistry } from "@axl/generators";
-import * as ui from "./ui.js";
-import { c, icons } from "./ui.js";
+import { c, icons, section, blank, table, divider, warn, success } from "./ui.js";
 import { findProjectRoot, loadConfig, resolvePaths } from "./config.js";
 
 // ---------------------------------------------------------------------------
@@ -17,7 +16,7 @@ import { findProjectRoot, loadConfig, resolvePaths } from "./config.js";
 interface Check {
   label: string;
   status: "pass" | "fail" | "warn";
-  detail: string;
+  detail: string | string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -36,14 +35,13 @@ const REQUIRED_FLOW_FILES = [
 // Doctor command
 // ---------------------------------------------------------------------------
 
-export function doctor(flowDir: string): void {
-  ui.banner("AXL Doctor", "Checking your installation and project health");
-  ui.blank();
+export async function doctor(flowDir: string): Promise<void> {
+  section("AXL Doctor — Diagnostics");
 
   const checks: Check[] = [];
 
   // ── CLI version ──
-  checks.push({ label: "CLI", status: "pass", detail: "v0.1.0" });
+  checks.push({ label: "CLI", status: "pass", detail: "v0.2.2" }); // Bumped to match package.json
 
   // ── Compiler ──
   try {
@@ -82,92 +80,92 @@ export function doctor(flowDir: string): void {
   }
 
   // Print environment checks
-  ui.heading("Environment");
-  ui.blank();
-  ui.table(checks);
+  blank();
+  console.log(`  ${c.primary("Environment")}`);
+  blank();
+  table(checks.map(ch => ({ key: ch.label, value: ch.detail, status: ch.status })));
 
   // ── Project checks ──
-  ui.blank();
-  ui.heading("Project");
-  ui.blank();
+  blank();
+  console.log(`  ${c.primary("Project")}`);
+  blank();
 
   const projectChecks: Check[] = [];
 
-  // Config
-  const projectRoot = findProjectRoot();
-  if (projectRoot) {
-    projectChecks.push({ label: "Project root", status: "pass", detail: projectRoot });
+  const root = findProjectRoot();
+  if (root) {
+    projectChecks.push({ label: "Project root", status: "pass", detail: root });
 
-    const config = loadConfig(projectRoot);
-    const paths = resolvePaths(projectRoot, config);
-
-    // axl.config.json
-    const configPath = path.join(projectRoot, "axl.config.json");
+    // config
+    const configPath = path.join(root, "axl.config.json");
     if (fs.existsSync(configPath)) {
-      projectChecks.push({ label: "axl.config.json", status: "pass", detail: configPath });
+      projectChecks.push({ label: "axl.config.json", status: "pass", detail: "" });
     } else {
-      projectChecks.push({ label: "axl.config.json", status: "warn", detail: "Not found (using defaults)" });
+      projectChecks.push({ label: "axl.config.json", status: "warn", detail: "Missing config file" });
     }
 
-    // Flow directory
-    if (fs.existsSync(paths.flowDir)) {
-      projectChecks.push({ label: "Flow directory", status: "pass", detail: paths.flowDir });
-    } else {
-      projectChecks.push({ label: "Flow directory", status: "fail", detail: `Not found: ${paths.flowDir}` });
-    }
-
-    // Individual .flow files
-    for (const file of REQUIRED_FLOW_FILES) {
-      const filePath = path.join(paths.flowDir, file);
-      if (fs.existsSync(filePath)) {
-        const stat = fs.statSync(filePath);
-        projectChecks.push({ label: `  ${file}`, status: "pass", detail: `${stat.size} bytes` });
+    // flow dir
+    const config = loadConfig(root);
+    const flowDir = path.resolve(root, config.flowDir);
+    const relFlowDir = path.relative(root, flowDir) || ".";
+    if (fs.existsSync(flowDir)) {
+      const files = fs.readdirSync(flowDir).filter(f => f.endsWith(".flow"));
+      if (files.length === 0) {
+        projectChecks.push({ label: "Flow directory", status: "warn", detail: `${relFlowDir} (0 files)` });
       } else {
-        const isRequired = file === "app.flow";
-        projectChecks.push({
-          label: `  ${file}`,
-          status: isRequired ? "fail" : "warn",
-          detail: "Not found",
+        const maxLen = Math.max(...files.map(f => f.length));
+        const fileDetails = files.map((f, i) => {
+          const isLast = i === files.length - 1;
+          const prefix = isLast ? icons.bLeft : icons.tRight;
+          const stats = fs.statSync(path.join(flowDir, f));
+          const pad = " ".repeat(maxLen - f.length + 2);
+          return `${c.secondary(prefix)} ${f}${pad}${c.secondary(`${stats.size} bytes`)}`;
         });
+        projectChecks.push({ label: "Flow directory", status: "pass", detail: [relFlowDir, ...fileDetails] });
       }
+    } else {
+      projectChecks.push({ label: "Flow directory", status: "fail", detail: `Missing: ${relFlowDir}` });
     }
 
-    // Manifest
-    const manifestPath = path.join(paths.outDir, "manifest.json");
+    // manifest
+    const manifestPath = path.resolve(root, config.outDir, "manifest.json");
     if (fs.existsSync(manifestPath)) {
-      const stat = fs.statSync(manifestPath);
-      projectChecks.push({ label: "Manifest", status: "pass", detail: `${stat.size} bytes` });
+      projectChecks.push({ label: "Manifest", status: "pass", detail: "Compiled (manifest.json)" });
     } else {
-      projectChecks.push({ label: "Manifest", status: "warn", detail: `Not compiled yet (run ${c.cyan}axl compile${c.reset})` });
+      projectChecks.push({ label: "Manifest", status: "warn", detail: "Not compiled yet (run axl compile)" });
     }
 
-    // VS Code
-    const vscodeDir = path.join(projectRoot, ".vscode");
+    // vscode
+    const vscodeDir = path.join(root, ".vscode");
     if (fs.existsSync(vscodeDir)) {
-      projectChecks.push({ label: "VS Code config", status: "pass", detail: vscodeDir });
+      projectChecks.push({ label: "VS Code config", status: "pass", detail: ".vscode" });
     } else {
-      projectChecks.push({ label: "VS Code config", status: "warn", detail: "Not found (optional)" });
+      projectChecks.push({ label: "VS Code config", status: "warn", detail: "Missing VS Code settings" });
     }
   } else {
     projectChecks.push({ label: "Project root", status: "warn", detail: "Not in an AXL project" });
   }
 
-  ui.table(projectChecks);
+  table(projectChecks.map(ch => ({ key: ch.label, value: ch.detail, status: ch.status })));
 
   // Summary
   const allChecks = [...checks, ...projectChecks];
-  const hasFailures = allChecks.some(ch => ch.status === "fail");
-  const hasWarnings = allChecks.some(ch => ch.status === "warn");
+  const fails = allChecks.filter(c => c.status === "fail").length;
+  const warns = allChecks.filter(c => c.status === "warn").length;
 
-  ui.blank();
-  if (hasFailures) {
-    ui.error("Some checks failed. Please fix the issues above.");
-  } else if (hasWarnings) {
-    ui.warn("Everything works, but there are some warnings.");
+  blank();
+  divider();
+  blank();
+
+  if (fails > 0) {
+    console.log(`  ${c.error(fails.toString() + " errors")} · run axl doctor --fix for details`);
+    blank();
+    process.exit(1);
+  } else if (warns > 0) {
+    console.log(`  ${c.warning("⚠ " + warns.toString() + " warnings")} · axl doctor --fix for details`);
+    blank();
   } else {
-    ui.success(`${icons.sparkle} Everything looks healthy!`);
+    console.log(`  ${c.success("✔")} ${c.primary("Everything looks healthy!")}`);
+    blank();
   }
-  ui.blank();
-
-  process.exit(hasFailures ? 1 : 0);
 }

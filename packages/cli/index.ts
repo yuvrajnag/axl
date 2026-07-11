@@ -2,14 +2,6 @@
 // ============================================================================
 // packages/cli/index.ts — AXL CLI entry point
 // ============================================================================
-// The primary developer interface for the AXL platform.
-//
-//   axl init      — scaffold a new .flow project (interactive)
-//   axl validate  — parse and validate .flow files
-//   axl compile   — compile .flow → build/manifest.json
-//   axl generate  — run configured generators
-//   axl doctor    — check installation and environment
-// ============================================================================
 
 import { compile } from "./compile.js";
 import { validate } from "./validate.js";
@@ -18,144 +10,70 @@ import { init } from "./init.js";
 import { generate } from "./generate.js";
 import { serve } from "./serve.js";
 import { findProjectRoot, loadConfig, resolvePaths } from "./config.js";
-import { c, icons, blank, errorBox, didYouMean } from "./ui.js";
+import { c, icons, blank, errorBlock, didYouMean, env, warn } from "./ui.js";
 import { GeneratorRegistry } from "@axl/generators";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // ---------------------------------------------------------------------------
 // Version
 // ---------------------------------------------------------------------------
 
-const VERSION = "0.1.0";
+function getVersion() {
+  try {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const pkgPath = path.resolve(__dirname, "../package.json");
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    return pkg.version;
+  } catch {
+    return "0.2.0";
+  }
+}
+
+const VERSION = getVersion();
 
 // ---------------------------------------------------------------------------
 // Help text
 // ---------------------------------------------------------------------------
 
 const HELP = () => {
-  const genList = [...GeneratorRegistry.keys()].join(", ");
   return `
-  ${c.brightCyan}${c.bold}AXL${c.reset} ${c.dim}v${VERSION}${c.reset}  ${c.dim}AI-native application specification language${c.reset}
+  axl v${VERSION} · AI Experience Layer
 
-  ${c.bold}Usage${c.reset}
-    ${c.dim}$${c.reset} axl <command> [options]
+  ${c.primary("Usage")}
+    axl <command> [options]
 
-  ${c.bold}Commands${c.reset}
-    ${c.cyan}init${c.reset}        Scaffold a new AXL project
-    ${c.cyan}validate${c.reset}    Parse and validate all .flow files
-    ${c.cyan}compile${c.reset}     Compile .flow files to build/manifest.json
-    ${c.cyan}serve${c.reset}       Start the AXL server (MCP over HTTP)
-    ${c.cyan}generate${c.reset}    Run configured generators (${genList})
-    ${c.cyan}doctor${c.reset}      Check installation and project health
+  ${c.primary("Core")}
+    init         ${c.plain("scaffold a new project")}
+    validate     ${c.plain("check flow files")}
+    compile      ${c.plain("build the manifest")}
+    generate     ${c.plain("generate code from manifest")}
+    build        ${c.plain("compile + generate")}
 
-  ${c.bold}Options${c.reset}
-    ${c.cyan}--dir${c.reset} <path>    Path to .flow directory   ${c.dim}(default: ./flow)${c.reset}
-    ${c.cyan}--out${c.reset} <path>    Output directory          ${c.dim}(default: ./build)${c.reset}
-    ${c.cyan}--verbose${c.reset}       Show detailed output
-    ${c.cyan}--help${c.reset}, ${c.cyan}-h${c.reset}      Show this help message
-    ${c.cyan}--version${c.reset}, ${c.cyan}-v${c.reset}   Show version
+  ${c.primary("Dev")}
+    serve        ${c.plain("start the AXL server (MCP over HTTP)")}
+    dev          ${c.plain("watch mode")}
+    doctor       ${c.plain("diagnose environment & project")}
+    info         ${c.plain("print project metadata")}
 
-  ${c.bold}Examples${c.reset}
-    ${c.dim}$${c.reset} axl init hotel-booking
-    ${c.dim}$${c.reset} axl validate
-    ${c.dim}$${c.reset} axl compile
-    ${c.dim}$${c.reset} axl generate
+  ${c.primary("Utility")}
+    clean        ${c.plain("remove build output")}
+    format       ${c.plain("format flow files")}
+    lint         ${c.plain("lint flow files")}
+    config       ${c.plain("view or edit axl.config.json")}
+
+  ${c.primary("Options")}
+    -h, --help      ${c.plain("show help")}
+    -v, --version   ${c.plain("print version")}
+    --json          ${c.plain("machine-readable output")}
+    --quiet         ${c.plain("suppress non-essential output")}
+    --verbose       ${c.plain("extra diagnostic output")}
+
+    ${c.secondary("axl init  ·  axl compile  ·  axl doctor")}
+
+  ${c.secondary("docs " + icons.arrow)} ${c.accent("axl.dev")}
 `;
-};
-
-// ---------------------------------------------------------------------------
-// Per-command help
-// ---------------------------------------------------------------------------
-
-const COMMAND_HELP = () => {
-  const genList = [...GeneratorRegistry.keys()].join(", ");
-  return {
-  init: `
-  ${c.brightCyan}${c.bold}axl init${c.reset}  ${c.dim}— Scaffold a new AXL project${c.reset}
-
-  ${c.bold}Usage${c.reset}
-    ${c.cyan}axl init${c.reset} [directory]
-
-  ${c.bold}Description${c.reset}
-    Creates a new AXL project with template .flow files,
-    VS Code configuration, and axl.config.json.
-
-  ${c.bold}Arguments${c.reset}
-    ${c.cyan}[directory]${c.reset}   Target directory ${c.dim}(default: current directory)${c.reset}
-
-  ${c.bold}Examples${c.reset}
-    ${c.dim}$${c.reset} axl init
-    ${c.dim}$${c.reset} axl init my-project
-`,
-
-  validate: `
-  ${c.brightCyan}${c.bold}axl validate${c.reset}  ${c.dim}— Validate .flow files${c.reset}
-
-  ${c.bold}Usage${c.reset}
-    ${c.cyan}axl validate${c.reset} [options]
-
-  ${c.bold}Description${c.reset}
-    Parses and validates all .flow files without producing
-    any output. Use to check for errors before compiling.
-
-  ${c.bold}Options${c.reset}
-    ${c.cyan}--dir${c.reset} <path>   Path to .flow directory ${c.dim}(default: ./flow)${c.reset}
-
-  ${c.bold}Examples${c.reset}
-    ${c.dim}$${c.reset} axl validate
-    ${c.dim}$${c.reset} axl validate --dir ./my-project/flow
-`,
-
-  compile: `
-  ${c.brightCyan}${c.bold}axl compile${c.reset}  ${c.dim}— Compile .flow to manifest.json${c.reset}
-
-  ${c.bold}Usage${c.reset}
-    ${c.cyan}axl compile${c.reset} [options]
-
-  ${c.bold}Description${c.reset}
-    Compiles all .flow files through the AXL pipeline:
-    Lexer ${icons.arrow} Parser ${icons.arrow} AST ${icons.arrow} Validator ${icons.arrow} Manifest
-
-  ${c.bold}Options${c.reset}
-    ${c.cyan}--dir${c.reset} <path>   Path to .flow directory ${c.dim}(default: ./flow)${c.reset}
-    ${c.cyan}--out${c.reset} <path>   Output directory        ${c.dim}(default: ./build)${c.reset}
-
-  ${c.bold}Examples${c.reset}
-    ${c.dim}$${c.reset} axl compile
-    ${c.dim}$${c.reset} axl compile --dir ./src/flow --out ./dist
-`,
-
-  generate: `
-  ${c.brightCyan}${c.bold}axl generate${c.reset}  ${c.dim}— Run code generators${c.reset}
-
-  ${c.bold}Usage${c.reset}
-    ${c.cyan}axl generate${c.reset} [options]
-
-  ${c.bold}Description${c.reset}
-    Reads the compiled manifest.json and runs the configured
-    generators (${genList}) to produce AI artifacts.
-
-  ${c.bold}Options${c.reset}
-    ${c.cyan}--out${c.reset} <path>   Build directory with manifest.json ${c.dim}(default: ./build)${c.reset}
-
-  ${c.bold}Examples${c.reset}
-    ${c.dim}$${c.reset} axl generate
-    ${c.dim}$${c.reset} axl generate --out ./dist
-`,
-
-  doctor: `
-  ${c.brightCyan}${c.bold}axl doctor${c.reset}  ${c.dim}— Check installation and project health${c.reset}
-
-  ${c.bold}Usage${c.reset}
-    ${c.cyan}axl doctor${c.reset}
-
-  ${c.bold}Description${c.reset}
-    Runs diagnostic checks on your AXL installation and
-    project configuration. Reports issues and suggestions.
-
-  ${c.bold}Examples${c.reset}
-    ${c.dim}$${c.reset} axl doctor
-`,
-  };
 };
 
 // ---------------------------------------------------------------------------
@@ -204,11 +122,13 @@ function parseArgs(raw: string[]): ParsedArgs {
 // Main
 // ---------------------------------------------------------------------------
 
-const KNOWN_COMMANDS = ["init", "validate", "compile", "serve", "generate", "doctor", "help"];
+const KNOWN_COMMANDS = ["init", "validate", "compile", "serve", "generate", "build", "dev", "doctor", "info", "clean", "format", "lint", "config", "help"];
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const verbose = args.booleans.has("--verbose");
+  env.isQuiet = args.booleans.has("--quiet");
+  env.isJson = args.booleans.has("--json");
 
   // --version / -v
   if (args.booleans.has("--version") || args.booleans.has("-v")) {
@@ -218,47 +138,22 @@ async function main(): Promise<void> {
 
   // --help / -h
   if (!args.command || args.booleans.has("--help") || args.booleans.has("-h") || args.command === "help") {
-    // Command-specific help: `axl help compile` or `axl compile --help`
-    const helpTarget = args.command === "help" ? args.positional[0] : args.command;
-    const commandHelp = COMMAND_HELP();
-    if (helpTarget && helpTarget !== "help" && (helpTarget in commandHelp)) {
-      console.log(commandHelp[helpTarget as keyof typeof commandHelp]);
-    } else {
-      console.log(HELP());
-    }
+    console.log(HELP());
     process.exit(0);
   }
 
   // Unknown command
   if (!KNOWN_COMMANDS.includes(args.command)) {
     const suggestion = didYouMean(args.command, KNOWN_COMMANDS);
-    const fix = suggestion ? [`Did you mean ${c.cyan}axl ${suggestion}${c.reset}?`] : [];
-    errorBox(
-      `Unknown command: ${args.command}`,
-      [`Run ${c.cyan}axl --help${c.reset} to see available commands.`],
-      fix,
-    );
+    const fix = suggestion ? `Did you mean axl ${suggestion}?` : `Run axl --help to see available commands.`;
+    errorBlock({
+      title: `Unknown command: ${args.command}`,
+      help: fix
+    });
     process.exit(1);
   }
 
-  // Validate flags
-  const KNOWN_FLAGS = ["--dir", "--out", "--verbose", "--help", "-h", "--version", "-v", "--yes", "-y", "--port"];
-  const allFlags = [...args.flags.keys(), ...args.booleans.keys()];
-  for (const flag of allFlags) {
-    if (!KNOWN_FLAGS.includes(flag)) {
-      const suggestion = didYouMean(flag, KNOWN_FLAGS);
-      const fix = suggestion ? [`Did you mean ${c.cyan}${suggestion}${c.reset}?`] : [];
-      errorBox(
-        `Unknown option: ${flag}`,
-        [`Run ${c.cyan}axl --help${c.reset} to see available options.`],
-        fix,
-      );
-      process.exit(1);
-    }
-  }
-
   // Resolve project paths
-  // For init, we don't need an existing project root
   if (args.command === "init") {
     const targetDir = args.positional[0] ?? args.flags.get("--dir") ?? ".";
     const skipPrompts = args.booleans.has("--yes") || args.booleans.has("-y");
@@ -270,27 +165,25 @@ async function main(): Promise<void> {
   const projectRoot = findProjectRoot();
 
   if (!projectRoot) {
-    errorBox(
-      "Not an AXL project",
-      [
-        "Could not find an AXL project in the current directory or any",
-        "parent directory. An AXL project requires either:",
+    errorBlock({
+      title: "Not an AXL project",
+      message: "Could not find an AXL project in the current directory or any parent directory.",
+      help: [
+        "An AXL project requires either:",
+        `  ${icons.dot} An axl.config.json file`,
+        `  ${icons.dot} A flow/ directory`,
         "",
-        `  ${icons.bullet} An ${c.cyan}axl.config.json${c.reset} file`,
-        `  ${icons.bullet} A ${c.cyan}flow/${c.reset} directory`,
-      ],
-      [`Run ${c.cyan}axl init${c.reset} to create a new project.`],
-    );
+        "Run axl init to create a new project."
+      ]
+    });
     process.exit(1);
   }
 
   const config = loadConfig(projectRoot);
 
-  // Allow CLI flags to override config
   const flowDir = args.positional[0] ?? args.flags.get("--dir") ?? config.flowDir;
   const outDir = args.positional[1] ?? args.flags.get("--out") ?? config.outDir;
 
-  // Resolve to absolute
   const paths = resolvePaths(projectRoot, {
     ...config,
     flowDir,
@@ -300,10 +193,10 @@ async function main(): Promise<void> {
   try {
     switch (args.command) {
       case "validate":
-        validate(paths.flowDir);
+        await validate(paths.flowDir);
         break;
       case "compile":
-        compile(paths.flowDir, paths.outDir);
+        await compile(paths.flowDir, paths.outDir);
         break;
       case "serve":
         await serve(paths.outDir, { port: args.flags.get("--port") ? parseInt(args.flags.get("--port")!, 10) : undefined });
@@ -312,16 +205,27 @@ async function main(): Promise<void> {
         await generate(paths.flowDir, paths.outDir);
         break;
       case "doctor":
-        doctor(paths.flowDir);
+        await doctor(paths.flowDir);
+        break;
+      case "build":
+      case "dev":
+      case "info":
+      case "clean":
+      case "format":
+      case "lint":
+      case "config":
+        warn(`Command '${args.command}' is not fully implemented yet.`);
         break;
     }
   } catch (err) {
     if (verbose && err instanceof Error) {
       console.error(err.stack);
     } else if (err instanceof Error) {
-      errorBox("Unexpected error", [err.message], [
-        "Run with --verbose for the full stack trace.",
-      ]);
+      errorBlock({
+        title: "Unexpected error",
+        message: err.message,
+        help: "Run with --verbose for the full stack trace."
+      });
     }
     process.exit(1);
   }

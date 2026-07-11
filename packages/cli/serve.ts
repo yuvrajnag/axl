@@ -6,7 +6,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { randomUUID } from "crypto";
 // @ts-ignore
 import { buildAxlServer } from "../../src/axl-server.js";
-import { c } from "./ui.js";
+import { c, icons, errorBlock, section, blank } from "./ui.js";
 
 // Storage for per-request context (like session cookie)
 export const requestContext = new AsyncLocalStorage<{ sessionCookie?: string, idempotencyKey?: string }>();
@@ -14,8 +14,12 @@ export const requestContext = new AsyncLocalStorage<{ sessionCookie?: string, id
 export async function serve(outDir: string, options: { port?: number }) {
   const manifestPath = path.join(outDir, "manifest.json");
   if (!fs.existsSync(manifestPath)) {
-    console.error(c.red + `Error: Could not find manifest.json at ${manifestPath}` + c.reset);
-    console.error("Run `axl compile` first to generate the manifest.");
+    blank();
+    errorBlock({
+      title: "Manifest not found",
+      message: `Could not find manifest.json at ${manifestPath}`,
+      help: "Run axl compile first to generate the manifest."
+    });
     process.exit(1);
   }
 
@@ -125,8 +129,11 @@ export async function serve(outDir: string, options: { port?: number }) {
   const port = options.port || 3939;
   
   app.listen(port, () => {
-    console.log(`${c.brightCyan}${c.bold}AXL Server running${c.reset}`);
-    console.log(`  ${c.dim}Health:${c.reset} http://localhost:${port}/health`);
-    console.log(`  ${c.dim}MCP Endpoint:${c.reset} http://localhost:${port}/mcp`);
+    section("AXL Server");
+    console.log(`  ${c.success(icons.success)} ${c.primary("Running")}`);
+    blank();
+    console.log(`  ${c.secondary("Health")}        ${c.accent(`http://localhost:${port}/health`)}`);
+    console.log(`  ${c.secondary("MCP Endpoint")}  ${c.accent(`http://localhost:${port}/mcp`)}`);
+    blank();
   });
 }

@@ -3,236 +3,300 @@
 // ============================================================================
 // Beautiful, cross-platform terminal output utilities.
 // All visual formatting flows through this module so the CLI has
-// a consistent, polished look everywhere.
-// ============================================================================
+import chalk from "chalk";
+import logUpdate from "log-update";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // ---------------------------------------------------------------------------
-// ANSI color codes — works on all modern terminals including Windows Terminal,
-// PowerShell 7, macOS Terminal, iTerm2, and all Linux terminals.
+// Config
 // ---------------------------------------------------------------------------
 
+// Support NO_COLOR or non-TTY gracefully
 const isColorSupported =
   process.env["NO_COLOR"] === undefined &&
   process.env["TERM"] !== "dumb" &&
   (process.stdout.isTTY ?? false);
 
-function ansi(code: string): string {
-  return isColorSupported ? code : "";
-}
+const isUnicodeSupported =
+  process.platform !== "win32" ||
+  process.env["TERM_PROGRAM"] === "vscode" ||
+  process.env["WT_SESSION"] !== undefined; // Windows Terminal
+
+const columns = () => Math.min(process.stdout.columns || 80, 64);
+const isNarrow = () => (process.stdout.columns || 80) < 60;
+
+// ---------------------------------------------------------------------------
+// Theme
+// ---------------------------------------------------------------------------
+
+const rawColors = {
+  primary: chalk.hex("#FFFFFF").bold,
+  secondary: chalk.hex("#C0C0C0"), // dim
+  accent: chalk.hex("#3B82F6"),
+  success: chalk.hex("#22C55E"),
+  warning: chalk.hex("#F59E0B"),
+  error: chalk.hex("#FF0000"),
+  plain: chalk.reset,
+};
 
 export const c = {
-  reset:     ansi("\x1b[0m"),
-  bold:      ansi("\x1b[1m"),
-  dim:       ansi("\x1b[2m"),
-  italic:    ansi("\x1b[3m"),
-  underline: ansi("\x1b[4m"),
-  // Foreground
-  red:       ansi("\x1b[31m"),
-  green:     ansi("\x1b[32m"),
-  yellow:    ansi("\x1b[33m"),
-  blue:      ansi("\x1b[34m"),
-  magenta:   ansi("\x1b[35m"),
-  cyan:      ansi("\x1b[36m"),
-  white:     ansi("\x1b[37m"),
-  gray:      ansi("\x1b[90m"),
-  // Bright
-  brightGreen:  ansi("\x1b[92m"),
-  brightYellow: ansi("\x1b[93m"),
-  brightCyan:   ansi("\x1b[96m"),
-  brightWhite:  ansi("\x1b[97m"),
-} as const;
+  primary: isColorSupported ? rawColors.primary : chalk.bold,
+  secondary: isColorSupported ? rawColors.secondary : chalk.dim,
+  accent: isColorSupported ? rawColors.accent : chalk.reset,
+  success: isColorSupported ? rawColors.success : chalk.reset,
+  warning: isColorSupported ? rawColors.warning : chalk.reset,
+  error: isColorSupported ? rawColors.error : chalk.reset,
+  plain: chalk.reset,
+};
 
-// ---------------------------------------------------------------------------
-// Unicode icons — degrades gracefully on terminals that don't support them
-// ---------------------------------------------------------------------------
+const sym = (unicode: string, fallback: string) => isUnicodeSupported ? unicode : fallback;
 
 export const icons = {
-  success:  "✔",
-  error:    "✖",
-  warning:  "⚠",
-  info:     "●",
-  arrow:    "→",
-  bullet:   "•",
-  line:     "─",
-  rocket:   "🚀",
-  sparkle:  "✨",
-  folder:   "📁",
-  file:     "📄",
-  gear:     "⚙",
-  check:    "✓",
-  cross:    "✗",
-  dot:      "·",
-} as const;
+  success: sym("✔", "[OK]"),
+  error: sym("✖", "[FAIL]"),
+  warning: sym("⚠", "[WARN]"),
+  info: sym("ℹ", "[INFO]"),
+  arrow: sym("❯", ">"),
+  dot: sym("●", "*"),
+  circle: sym("○", "o"),
+  line: sym("─", "-"),
+  vLine: sym("│", "|"),
+  tRight: sym("├", "+"),
+  bLeft: sym("└", "+"),
+  tl: sym("╭", "+"),
+  tr: sym("╮", "+"),
+  bl: sym("╰", "+"),
+  br: sym("╯", "+"),
+};
 
 // ---------------------------------------------------------------------------
-// Layout helpers
+// Core Primitives
 // ---------------------------------------------------------------------------
 
-export function logo(): void {
+export function blank() {
+  console.log("");
+}
+
+export function brand() {
+  // Read version from package.json dynamically
+  let version = "0.2.0";
+  try {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const pkgPath = path.resolve(__dirname, "../package.json");
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    version = pkg.version;
+  } catch {}
+
   const ascii = `
-    █████╗ ██╗  ██╗██╗
-   ██╔══██╗╚██╗██╔╝██║
-   ███████║ ╚███╔╝ ██║
-   ██╔══██║ ██╔██╗ ██║
-   ██║  ██║██╔╝ ██╗███████╗
-  `;
-  console.log(`\n${c.brightCyan}${ascii}${c.reset}`);
-  console.log(`  ${c.bold}AXL v0.1.0${c.reset}`);
-  console.log(`  ${c.dim}AI-Native Application Specification Language${c.reset}\n`);
-}
+   █████╗ ██╗  ██╗██╗
+  ██╔══██╗╚██╗██╔╝██║
+  ███████║ ╚███╔╝ ██║
+  ██╔══██║ ██╔██╗ ██║
+  ██║  ██║██╔╝ ██╗███████╗`;
 
-export function banner(title: string, subtitle?: string): void {
-  const width = 50;
-  const line = icons.line.repeat(width);
   console.log("");
-  console.log(`  ${c.brightCyan}${c.bold}${title}${c.reset}`);
-  console.log(`  ${c.dim}${line}${c.reset}`);
-  if (subtitle) {
-    console.log(`  ${c.dim}${subtitle}${c.reset}`);
-  }
-}
-
-export function success(message: string): void {
-  console.log(`  ${c.green}${icons.success}${c.reset} ${message}`);
-}
-
-export function error(message: string): void {
-  console.log(`  ${c.red}${icons.error}${c.reset} ${message}`);
-}
-
-export function warn(message: string): void {
-  console.log(`  ${c.yellow}${icons.warning}${c.reset} ${message}`);
-}
-
-export function info(message: string): void {
-  console.log(`  ${c.blue}${icons.info}${c.reset} ${message}`);
-}
-
-export function step(label: string, detail?: string): void {
-  const suffix = detail ? ` ${c.dim}${detail}${c.reset}` : "";
-  console.log(`  ${c.green}${icons.success}${c.reset} ${label}${suffix}`);
-}
-
-export function dim(message: string): void {
-  console.log(`  ${c.dim}${message}${c.reset}`);
-}
-
-export function blank(): void {
+  console.log(c.accent(ascii));
   console.log("");
+  console.log(`  axl v${version} · AI Experience Layer`);
 }
 
-export function label(key: string, value: string): void {
-  console.log(`  ${c.dim}${key}:${c.reset} ${value}`);
-}
-
-export function heading(text: string): void {
-  console.log(`  ${c.bold}${text}${c.reset}`);
-}
-
-export function suggestion(title: string, lines: string[]): void {
+export function section(title: string) {
   console.log("");
-  console.log(`  ${c.yellow}${icons.warning} ${title}${c.reset}`);
-  for (const line of lines) {
-    console.log(`    ${c.dim}${line}${c.reset}`);
-  }
+  console.log(`  ${c.primary(title)}`);
 }
 
-export function table(rows: Array<{ label: string; status: "pass" | "fail" | "warn"; detail: string }>): void {
-  const maxLabel = Math.max(...rows.map(r => r.label.length));
-  for (const row of rows) {
-    const icon = row.status === "pass"
-      ? `${c.green}${icons.success}${c.reset}`
-      : row.status === "warn"
-        ? `${c.yellow}${icons.warning}${c.reset}`
-        : `${c.red}${icons.cross}${c.reset}`;
-    const paddedLabel = row.label.padEnd(maxLabel);
-    console.log(`  ${icon} ${c.bold}${paddedLabel}${c.reset}  ${c.dim}${row.detail}${c.reset}`);
-  }
+export function divider() {
+  console.log(`  ${c.secondary(icons.line.repeat(columns() - 2))}`);
+}
+
+export function hint(text: string) {
+  console.log(`  ${c.accent(icons.arrow)} ${c.plain(text)}`);
+}
+
+export function warn(text: string) {
+  console.log(`  ${c.warning(icons.warning)} ${c.plain(text)}`);
+}
+
+export function errorMsg(text: string) {
+  console.log(`  ${c.error(icons.error)} ${c.error("error")} · ${c.plain(text)}`);
+}
+
+export function success(text: string) {
+  console.log(`  ${c.success(icons.success)} ${c.success("success")} · ${c.plain(text)}`);
 }
 
 // ---------------------------------------------------------------------------
-// Error box — for fatal errors
+// Table (Hand-rolled)
 // ---------------------------------------------------------------------------
 
-export function errorBox(title: string, body: string[], fix?: string[]): void {
-  console.log("");
-  console.log(`  ${c.red}${c.bold}${icons.error} ${title}${c.reset}`);
-  console.log("");
-  for (const line of body) {
-    console.log(`  ${line}`);
+export function table(rows: Array<{ key: string; value: string | string[]; status?: "pass"|"warn"|"fail" }>) {
+  // calculate max key length
+  let maxKey = 0;
+  for (const r of rows) {
+    if (r.key.length > maxKey) maxKey = r.key.length;
   }
-  if (fix && fix.length > 0) {
-    console.log("");
-    console.log(`  ${c.dim}Suggestion:${c.reset}`);
-    for (const f of fix) {
-      console.log(`    ${c.cyan}${f}${c.reset}`);
-    }
-  }
-  console.log("");
-}
 
-// ---------------------------------------------------------------------------
-// Progress simulation (for fast operations that complete instantly)
-// ---------------------------------------------------------------------------
-
-export function pipeline(steps: Array<{ label: string; ok: boolean; detail?: string }>): void {
-  for (const s of steps) {
-    if (s.ok) {
-      const suffix = s.detail ? ` ${c.dim}${s.detail}${c.reset}` : "";
-      console.log(`  ${c.green}${icons.success}${c.reset} ${s.label}${suffix}`);
+  for (const r of rows) {
+    const icon = r.status === "pass" ? c.success(icons.success) :
+                 r.status === "warn" ? c.warning(icons.warning) :
+                 r.status === "fail" ? c.error(icons.error) :
+                 " ";
+    
+    const keyPad = r.key.padEnd(maxKey, " ");
+    
+    if (Array.isArray(r.value)) {
+      console.log(`  ${icon} ${c.secondary(keyPad)}  ${c.primary(r.value[0]!)}`);
+      for (let i = 1; i < r.value.length; i++) {
+        console.log(`  ${" "} ${" ".repeat(maxKey)}  ${c.primary(r.value[i]!)}`);
+      }
     } else {
-      const suffix = s.detail ? ` ${c.dim}${s.detail}${c.reset}` : "";
-      console.log(`  ${c.red}${icons.cross}${c.reset} ${s.label}${suffix}`);
+      console.log(`  ${icon} ${c.secondary(keyPad)}  ${c.primary(r.value)}`);
     }
   }
 }
 
 // ---------------------------------------------------------------------------
-// Spinner (zero dependencies)
+// Step List (In-place updates)
 // ---------------------------------------------------------------------------
 
-export class Spinner {
-  private frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-  private i = 0;
-  private timer: NodeJS.Timeout | null = null;
-  private message = "";
+export interface Step {
+  label: string;
+  status: "pending" | "active" | "done" | "fail";
+  meta?: string;
+}
 
-  start(msg: string) {
-    this.message = msg;
-    if (this.timer) clearInterval(this.timer);
-    
-    // Initial draw
-    process.stdout.write(`  ${c.cyan}${this.frames[0]}${c.reset} ${this.message}`);
-    
-    this.timer = setInterval(() => {
-      this.i = (this.i + 1) % this.frames.length;
-      process.stdout.write(`\r  ${c.cyan}${this.frames[this.i]}${c.reset} ${this.message}`);
-    }, 80);
+const frames = ["◐", "◓", "◑", "◒"];
+
+export class StepList {
+  private steps: Step[] = [];
+  private frameIdx = 0;
+  private interval: NodeJS.Timeout | null = null;
+  private silent = false;
+  private maxLabel = 0;
+
+  constructor(steps: string[], silent = false) {
+    this.silent = silent;
+    this.steps = steps.map(label => {
+      if (label.length > this.maxLabel) this.maxLabel = label.length;
+      return { label, status: "pending" };
+    });
+    if (!silent && process.stdout.isTTY) {
+      this.interval = setInterval(() => {
+        this.frameIdx = (this.frameIdx + 1) % frames.length;
+        this.render();
+      }, 80);
+    }
   }
 
-  update(msg: string) {
-    this.message = msg;
-    process.stdout.write(`\r  ${c.cyan}${this.frames[this.i]}${c.reset} ${this.message}\x1b[K`);
+  private render() {
+    if (this.silent) return;
+
+    let out = "";
+    for (const step of this.steps) {
+      let icon = c.secondary(icons.circle);
+      if (step.status === "active") icon = c.accent(frames[this.frameIdx]!);
+      else if (step.status === "done") icon = c.success(icons.success);
+      else if (step.status === "fail") icon = c.error(icons.error);
+
+      let line = `  ${icon} ${c.plain(step.label)}`;
+      if (step.meta && !isNarrow()) {
+        const padding = this.maxLabel - step.label.length + 2;
+        line += " ".repeat(padding) + c.secondary(step.meta);
+      }
+      out += line + "\n";
+    }
+    logUpdate("\n" + out.trimEnd() + "\n");
   }
 
-  stop(msg?: string, success = true) {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
-    
-    // Clear line
-    process.stdout.write("\r\x1b[K");
-    
-    if (msg) {
-      const icon = success ? `${c.green}${icons.success}${c.reset}` : `${c.red}${icons.cross}${c.reset}`;
-      console.log(`  ${icon} ${msg}`);
+  update(idx: number, status: Step["status"], meta?: string) {
+    if (this.steps[idx]) {
+      this.steps[idx]!.status = status;
+      if (meta) this.steps[idx]!.meta = meta;
+
+      // In silent mode OR non-tty, we only log the final result of each step to avoid log spam
+      if (this.silent || (!process.stdout.isTTY)) {
+        if (status === "done" || status === "fail") {
+          const icon = status === "done" ? c.success(icons.success) : c.error(icons.error);
+          const metaStr = meta ? `  ${c.secondary(meta)}` : "";
+          console.log(`  ${icon} ${c.plain(this.steps[idx]!.label)}${metaStr}`);
+        }
+      } else {
+        this.render();
+      }
+    }
+  }
+
+  stop() {
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
+    }
+    if (!this.silent && process.stdout.isTTY) {
+      this.render();
+      logUpdate.done();
     }
   }
 }
 
+export function stepList(steps: string[], silent = false): StepList {
+  return new StepList(steps, silent);
+}
+
 // ---------------------------------------------------------------------------
-// Fuzzy suggestion ("Did you mean X?")
+// Rust-style Error Block
 // ---------------------------------------------------------------------------
 
+export interface ErrorBlock {
+  code?: string;
+  title: string;
+  location?: string;
+  message?: string;
+  expected?: string;
+  found?: string;
+  help?: string | string[];
+  docs?: string;
+}
+
+export function errorBlock(err: ErrorBlock) {
+  const codeStr = err.code ? `[${err.code}]` : "";
+  console.log(`  ${c.error(icons.error)} ${c.error("error" + codeStr)}: ${c.primary(err.title)}`);
+  console.log("");
+  
+  if (err.location) {
+    console.log(`  ${c.secondary("┌─")} ${c.plain(err.location)}`);
+    console.log(`  ${c.secondary("│")}`);
+    if (err.message) {
+      console.log(`  ${c.secondary("│")}  ${c.plain(err.message)}`);
+      console.log(`  ${c.secondary("│")}`);
+    }
+  }
+
+  if (err.expected) {
+    console.log(`  ${c.accent("=")} ${c.secondary("expected".padEnd(10))} ${c.plain(err.expected)}`);
+  }
+  if (err.found) {
+    console.log(`  ${c.accent("=")} ${c.secondary("found".padEnd(10))} ${c.plain(err.found)}`);
+  }
+  if (err.help) {
+    const helps = Array.isArray(err.help) ? err.help : [err.help];
+    console.log(`  ${c.accent("=")} ${c.secondary("help".padEnd(10))} ${c.plain(helps[0]!)}`);
+    for (let i = 1; i < helps.length; i++) {
+      console.log(`  ${" "} ${" ".repeat(10)} ${c.plain(helps[i]!)}`);
+    }
+  }
+
+  if (err.docs) {
+    console.log("");
+    console.log(`  ${c.secondary("docs " + icons.arrow)} ${c.accent(err.docs)}`);
+  }
+  console.log("");
+}
+
+// ---------------------------------------------------------------------------
+// Fuzzy match
+// ---------------------------------------------------------------------------
 export function didYouMean(input: string, candidates: string[]): string | undefined {
   let best: string | undefined;
   let bestScore = Infinity;
@@ -262,3 +326,11 @@ function levenshtein(a: string, b: string): number {
   }
   return dp[m]![n]!;
 }
+
+// ---------------------------------------------------------------------------
+// Global env state
+// ---------------------------------------------------------------------------
+export const env = {
+  isQuiet: false,
+  isJson: false,
+};
