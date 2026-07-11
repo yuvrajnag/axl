@@ -160,6 +160,46 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Validate flags
+  const GLOBAL_FLAGS = ["--verbose", "--quiet", "--json", "--help", "-h", "--version", "-v"];
+  const CMD_FLAGS: Record<string, string[]> = {
+    init: ["--yes", "-y", "--dir"],
+    serve: ["--port", "--dir", "--out"],
+    validate: ["--dir", "--out"],
+    compile: ["--dir", "--out"],
+    generate: ["--dir", "--out"],
+    build: ["--dir", "--out"],
+    dev: ["--dir", "--out"],
+    doctor: ["--dir", "--out"], // --fix is intentionally excluded
+    info: ["--dir", "--out"],
+    clean: ["--dir", "--out"],
+    format: ["--dir", "--out"],
+    lint: ["--dir", "--out"],
+    config: ["--dir", "--out"],
+    help: [],
+  };
+
+  const allowedFlags = new Set([...GLOBAL_FLAGS, ...(CMD_FLAGS[args.command] || [])]);
+  const providedFlags = [...args.flags.keys(), ...args.booleans];
+  for (const flag of providedFlags) {
+    if (!allowedFlags.has(flag)) {
+      if (args.command === "doctor" && flag === "--fix") {
+        errorBlock({
+          title: `Option not implemented`,
+          help: `The --fix flag is not yet implemented.`,
+        });
+        process.exit(1);
+      }
+      const suggestion = didYouMean(flag, Array.from(allowedFlags));
+      const fix = suggestion ? `Did you mean ${suggestion}?` : `Run axl ${args.command} --help to see available options.`;
+      errorBlock({
+        title: `Unknown option: ${flag}`,
+        help: fix
+      });
+      process.exit(1);
+    }
+  }
+
   // Resolve project paths
   if (args.command === "init") {
     const targetDir = args.positional[0] ?? args.flags.get("--dir") ?? ".";
