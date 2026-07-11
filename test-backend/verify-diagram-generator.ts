@@ -117,8 +117,8 @@ async function main() {
   console.log("VERIFICATION");
   console.log("=".repeat(60));
 
-  const flowchart = files.find(f => f.path === "docs/system-flow.mmd")!.content;
-  const er = files.find(f => f.path === "docs/schema.mmd")!.content;
+  const flowchart = files.find(f => f.path === "docs/system-flow.md")!.content;
+  const er = files.find(f => f.path === "docs/schema.md")!.content;
 
   // 1. AUTH shape differs from PUBLIC
   const publicLine = flowchart.split("\n").find(l => l.includes("browse_rooms") && !l.includes("Legend"));

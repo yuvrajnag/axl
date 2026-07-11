@@ -44,6 +44,8 @@ function actionNode(
 
 function generateFlowchart(manifest: Manifest): string {
   const lines: string[] = [];
+  lines.push("# System Flow\n");
+  lines.push("```mermaid");
   lines.push("flowchart TD");
 
   // Legend subgraph
@@ -79,6 +81,7 @@ function generateFlowchart(manifest: Manifest): string {
     lines.push("  end");
   }
 
+  lines.push("```");
   return lines.join("\n") + "\n";
 }
 
@@ -102,6 +105,8 @@ function parseFieldType(type: string): { inner: string; isList: boolean } {
 function generateErDiagram(manifest: Manifest): string {
   const entityNames = new Set(manifest.entities.map((e) => e.name));
   const lines: string[] = [];
+  lines.push("# Schema\n");
+  lines.push("```mermaid");
   lines.push("erDiagram");
 
   // Track emitted relation pairs to avoid duplicates
@@ -141,6 +146,7 @@ function generateErDiagram(manifest: Manifest): string {
     }
   }
 
+  lines.push("```");
   return lines.join("\n") + "\n";
 }
 
@@ -156,11 +162,11 @@ export class DiagramGenerator implements Generator {
   async generate(manifest: Manifest): Promise<GeneratedFile[]> {
     return [
       {
-        path: "docs/system-flow.mmd",
+        path: "docs/system-flow.md",
         content: generateFlowchart(manifest),
       },
       {
-        path: "docs/schema.mmd",
+        path: "docs/schema.md",
         content: generateErDiagram(manifest),
       },
     ];
