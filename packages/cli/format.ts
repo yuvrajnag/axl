@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { c, section, blank, success, env } from "./ui.js";
 
-function formatFlowCode(code: string): string {
+export function formatFlowSource(code: string): string {
   const lines = code.split(/\r?\n/);
   const formatted: string[] = [];
   
@@ -67,7 +67,7 @@ export async function format(flowDir: string): Promise<void> {
     const filePath = path.join(flowDir, file);
     const content = fs.readFileSync(filePath, "utf-8");
     
-    const formatted = formatFlowCode(content);
+    const formatted = formatFlowSource(content);
     if (content !== formatted) {
       fs.writeFileSync(filePath, formatted, "utf-8");
       formattedCount++;

@@ -12,15 +12,10 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    "composite": true,
     "outDir": "dist",
     "rootDir": "."
   },
-  "files": [],
-  "references": [
-    { "path": "packages/compiler" },
-    { "path": "packages/cli" },
-    { "path": "packages/generators" },
-    { "path": "packages/vscode" }
-  ],
-  "exclude": ["node_modules", "dist", "build", "examples"]
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

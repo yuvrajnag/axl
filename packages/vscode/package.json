@@ -1,13 +1,15 @@
 {
   "name": "axl-flow",
   "displayName": "AXL Flow Language",
-  "description": "Syntax highlighting, language support, and diagnostics for the AXL .flow specification language",
-  "version": "1.0.0",
+  "description": "Syntax highlighting, hover tooltips, inline diagnostics, snippets, and format-on-save for the AXL .flow specification language",
+  "version": "0.2.0",
   "publisher": "axl",
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Programming Languages"],
+  "categories": ["Programming Languages", "Linters", "Formatters", "Snippets"],
+  "main": "./dist/extension.js",
+  "activationEvents": ["onLanguage:flow"],
   "contributes": {
     "languages": [
       {
@@ -27,6 +29,21 @@
         "scopeName": "source.flow",
         "path": "./syntaxes/flow.tmLanguage.json"
       }
+    ],
+    "snippets": [
+      {
+        "language": "flow",
+        "path": "./snippets/flow.code-snippets"
+      }
     ]
+  },
+  "scripts": {
+    "build": "tsc --noEmit && npm run bundle",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --outfile=dist/extension.js --external:vscode --sourcemap"
+  },
+  "devDependencies": {
+    "@axl/compiler": "0.1.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.28.1"
   }
 }

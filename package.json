@@ -7,7 +7,8 @@
   "workspaces": [
     "packages/compiler",
     "packages/cli",
-    "packages/generators"
+    "packages/generators",
+    "packages/vscode"
   ],
   "scripts": {
     "build": "tsc --build && npm run build --workspace=scl-axl",
