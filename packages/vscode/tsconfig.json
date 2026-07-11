@@ -16,6 +16,9 @@
     "outDir": "dist",
     "rootDir": "."
   },
+  "references": [
+    { "path": "../compiler" }
+  ],
   "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
