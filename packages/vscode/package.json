@@ -4,7 +4,7 @@
   "description": "Syntax highlighting, hover tooltips, inline diagnostics, snippets, and format-on-save for the AXL .flow specification language",
   "version": "0.2.0",
   "publisher": "axl",
-  "icon": "icons/flow-dark.png",
+  "icon": "icons/flow.svg",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -28,8 +28,8 @@
         "extensions": [".flow"],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./icons/flow-light.png",
-          "dark": "./icons/flow-dark.png"
+          "light": "./icons/flow.svg",
+          "dark": "./icons/flow.svg"
         }
       }
     ],
