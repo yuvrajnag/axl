@@ -71,14 +71,15 @@ export class ManifestGenerator {
   private buildEntities(): ManifestEntity[] {
     return this.ast.entities.map(entity => ({
       name: entity.name,
-      fields: entity.fields.map(field => this.buildField(field.name, field.type)),
+      fields: entity.fields.map(field => this.buildField(field.name, field.type, field.relation)),
     }));
   }
 
-  private buildField(name: string, type: TypeRef): ManifestField {
+  private buildField(name: string, type: TypeRef, relation?: string): ManifestField {
     return {
       name,
       type: this.serializeTypeRef(type),
+      ...(relation ? { relation } : {}),
     };
   }
 
@@ -125,8 +126,22 @@ export class ManifestGenerator {
   private buildWorkflows(): ManifestWorkflow[] {
     return this.ast.workflows.map(workflow => ({
       name: workflow.name,
-      steps: workflow.steps.map(step => step.actionRef),
+      steps: this.buildSteps(workflow.steps),
     }));
+  }
+
+  private buildSteps(steps: readonly import("./ast.js").StepNode[]): import("./types.js").ManifestStep[] {
+    return steps.map(step => {
+      if (step.kind === "Step") {
+        return step.actionRef;
+      } else {
+        return {
+          if: step.condition,
+          then: this.buildSteps(step.trueSteps),
+          ...(step.falseSteps ? { else: this.buildSteps(step.falseSteps) } : {})
+        };
+      }
+    });
   }
 
   private buildPermissions(): Record<string, string> {

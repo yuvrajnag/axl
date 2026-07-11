@@ -55,6 +55,8 @@ export type {
   ManifestInputField,
   ManifestEndpoint,
   ManifestWorkflow,
+  ManifestStep,
+  ManifestBranch,
   ManifestRateLimit,
   CompileResult,
 } from "./types.js";

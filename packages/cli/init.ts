@@ -10,8 +10,9 @@ import { c, icons, brand, section, stepList, blank, errorMsg, warn } from "./ui.
 import { writeConfig, type AxlConfig } from "./config.js";
 
 // Override prompts symbols to match AXL theme exactly
-// @ts-ignore
-const promptsStyle = require("prompts/lib/util/style.js");
+import * as nodeModule from "node:module";
+const _require = nodeModule.createRequire(import.meta.url);
+const promptsStyle = _require("prompts/lib/util/style.js");
 promptsStyle.symbol = (done: boolean, aborted: boolean) => {
   if (aborted) return `  ${c.error(icons.error)}`;
   if (done) return `  ${c.success(icons.success)}`;

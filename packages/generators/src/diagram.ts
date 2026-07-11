@@ -62,21 +62,61 @@ function generateFlowchart(manifest: Manifest): string {
     lines.push("");
     lines.push(`  subgraph ${nodeId("wf", workflow.name)}["${workflow.name}"]`);
 
-    const stepIds: string[] = [];
+    let stepCounter = 0;
+    
+    function processSteps(steps: import("@axl/compiler").ManifestStep[]): { head: string, tails: string[] } | null {
+      if (steps.length === 0) return null;
+      
+      let currentHead: string | null = null;
+      let previousTails: string[] = [];
 
-    for (let i = 0; i < workflow.steps.length; i++) {
-      const stepName = workflow.steps[i];
-      const id = nodeId("step", `${workflow.name}_${stepName}_${i}`);
-      stepIds.push(id);
-
-      const action = manifest.actions[stepName];
-      lines.push(`    ${actionNode(id, stepName, action)}`);
+      for (const step of steps) {
+        if (typeof step === "string") {
+          const stepName = step;
+          const id = nodeId("step", `${workflow.name}_${stepName}_${stepCounter++}`);
+          const action = manifest.actions[stepName];
+          lines.push(`    ${actionNode(id, stepName, action)}`);
+          
+          if (!currentHead) currentHead = id;
+          
+          for (const pt of previousTails) {
+            lines.push(`    ${pt} --> ${id}`);
+          }
+          previousTails = [id];
+        } else {
+          // Branch step
+          const id = nodeId("if", `${workflow.name}_if_${stepCounter++}`);
+          lines.push(`    ${id}{{"${step.if}"}}`);
+          
+          if (!currentHead) currentHead = id;
+          
+          for (const pt of previousTails) {
+            lines.push(`    ${pt} --> ${id}`);
+          }
+          
+          const trueBlock = processSteps(step.then);
+          const falseBlock = step.else ? processSteps(step.else) : null;
+          
+          if (trueBlock) {
+             lines.push(`    ${id} -- true --> ${trueBlock.head}`);
+          }
+          if (falseBlock) {
+             lines.push(`    ${id} -- false --> ${falseBlock.head}`);
+          }
+          
+          previousTails = [];
+          if (trueBlock) previousTails.push(...trueBlock.tails);
+          else previousTails.push(id);
+          
+          if (falseBlock) previousTails.push(...falseBlock.tails);
+          else if (!step.else) previousTails.push(id);
+        }
+      }
+      
+      return { head: currentHead!, tails: previousTails };
     }
 
-    // Directional edges between consecutive steps
-    for (let i = 0; i < stepIds.length - 1; i++) {
-      lines.push(`    ${stepIds[i]} --> ${stepIds[i + 1]}`);
-    }
+    processSteps(workflow.steps);
 
     lines.push("  end");
   }
@@ -134,7 +174,8 @@ function generateErDiagram(manifest: Manifest): string {
         const pair = [entity.name, inner].sort().join("::");
         if (!emittedRelations.has(pair)) {
           emittedRelations.add(pair);
-          if (isList) {
+          const isMany = field.relation ? field.relation === "many" : isList;
+          if (isMany) {
             // one-to-many
             lines.push(`  ${entity.name} ||--o{ ${inner} : "${field.name}"`);
           } else {

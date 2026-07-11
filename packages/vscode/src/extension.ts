@@ -108,6 +108,42 @@ export function activate(context: vscode.ExtensionContext) {
   // Run diagnostics on activation for any already-open flow files
   runDiagnostics();
 
+  // -- Definition Provider --------------------------------------------------
+  const definitionProvider = vscode.languages.registerDefinitionProvider("flow", {
+    provideDefinition(document, position) {
+      const wordRange = document.getWordRangeAtPosition(position, /[a-zA-Z_][a-zA-Z0-9_-]*/);
+      if (!wordRange) return null;
+
+      const word = document.getText(wordRange);
+      const ast = parseWorkspaceFlowFiles(document.uri);
+      if (!ast) return null;
+
+      const flowDir = findFlowDir(document.uri);
+      if (!flowDir) return null;
+
+      // Check actions
+      const action = ast.actions.find(a => a.name === word);
+      if (action) {
+        return new vscode.Location(
+          vscode.Uri.file(path.join(flowDir, action.location.file)),
+          new vscode.Position(action.location.line - 1, action.location.column - 1)
+        );
+      }
+
+      // Check entities
+      const entity = ast.entities.find(e => e.name === word);
+      if (entity) {
+        return new vscode.Location(
+          vscode.Uri.file(path.join(flowDir, entity.location.file)),
+          new vscode.Position(entity.location.line - 1, entity.location.column - 1)
+        );
+      }
+
+      return null;
+    }
+  });
+  context.subscriptions.push(definitionProvider);
+
   // -- Format Provider ------------------------------------------------------
   const formatProvider = vscode.languages.registerDocumentFormattingEditProvider("flow", {
     provideDocumentFormattingEdits(document) {

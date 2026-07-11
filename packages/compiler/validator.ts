@@ -205,6 +205,9 @@ export class Validator {
     for (const entity of this.ast.entities) {
       for (const field of entity.fields) {
         this.validateTypeRef(field.type, `field "${field.name}" in entity "${entity.name}"`);
+        if (field.relation && field.relation !== "one" && field.relation !== "many") {
+           this.error(field.location, "AXL311", `Invalid relation type "${field.relation}" on field "${field.name}". Must be "one" or "many".`);
+        }
       }
     }
   }
@@ -300,18 +303,29 @@ export class Validator {
   // -------------------------------------------------------------------------
 
   private checkWorkflowActionReferences(): void {
-    for (const workflow of this.ast.workflows) {
-      for (const step of workflow.steps) {
-        if (!this.actionNames.has(step.actionRef)) {
-          const suggestion = this.findSimilar(step.actionRef, this.actionNames);
-          this.error(
-            step.location,
-            "AXL330",
-            `Workflow "${workflow.name}" references unknown action "${step.actionRef}"`,
-            suggestion ? `Did you mean "${suggestion}"?` : undefined,
-          );
+    const checkSteps = (steps: readonly import("./ast.js").StepNode[], workflowName: string) => {
+      for (const step of steps) {
+        if (step.kind === "Step") {
+          if (!this.actionNames.has(step.actionRef)) {
+            const suggestion = this.findSimilar(step.actionRef, this.actionNames);
+            this.error(
+              step.location,
+              "AXL330",
+              `Workflow "${workflowName}" references unknown action "${step.actionRef}"`,
+              suggestion ? `Did you mean "${suggestion}"?` : undefined,
+            );
+          }
+        } else if (step.kind === "BranchStep") {
+          checkSteps(step.trueSteps, workflowName);
+          if (step.falseSteps) {
+            checkSteps(step.falseSteps, workflowName);
+          }
         }
       }
+    };
+
+    for (const workflow of this.ast.workflows) {
+      checkSteps(workflow.steps, workflow.name);
     }
   }
 

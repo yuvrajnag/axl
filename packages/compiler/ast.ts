@@ -21,6 +21,7 @@ export type NodeKind =
   | "Endpoint"
   | "Workflow"
   | "Step"
+  | "BranchStep"
   | "Permission"
   | "Confirmation"
   | "RateLimit";
@@ -56,6 +57,7 @@ export interface FieldNode extends BaseNode {
   readonly kind: "Field";
   readonly name: string;
   readonly type: TypeRef;
+  readonly relation?: string;
 }
 
 export interface EntityNode extends BaseNode {
@@ -94,10 +96,19 @@ export interface ActionNode extends BaseNode {
 // workflows.flow
 // ---------------------------------------------------------------------------
 
-export interface StepNode extends BaseNode {
+export interface ActionStepNode extends BaseNode {
   readonly kind: "Step";
   readonly actionRef: string;
 }
+
+export interface BranchStepNode extends BaseNode {
+  readonly kind: "BranchStep";
+  readonly condition: string;
+  readonly trueSteps: readonly StepNode[];
+  readonly falseSteps?: readonly StepNode[];
+}
+
+export type StepNode = ActionStepNode | BranchStepNode;
 
 export interface WorkflowNode extends BaseNode {
   readonly kind: "Workflow";

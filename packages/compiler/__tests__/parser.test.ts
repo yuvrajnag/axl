@@ -46,6 +46,25 @@ ENTITY User
     }
   });
 
+  it("parses explicit entity relations", () => {
+    const source = `
+ENTITY Order
+  id : String
+  items : List<Product> RELATION many
+  buyer : User RELATION one
+`;
+    const parser = new Parser(source, "schema.flow");
+    const result = parser.detectAndParse();
+    
+    expect(result.diagnostics).toHaveLength(0);
+    expect(result.type).toBe("schema");
+    if (result.type === "schema") {
+      const entity = result.nodes[0]!;
+      expect(entity.fields[1]?.relation).toBe("many");
+      expect(entity.fields[2]?.relation).toBe("one");
+    }
+  });
+
   it("parses an action file", () => {
     const source = `
 ACTION get_user
@@ -71,6 +90,39 @@ ACTION get_user
       expect(action.output.name).toBe("User");
       expect(action.endpoint.method).toBe("GET");
       expect(action.endpoint.path).toBe("/users/{id}");
+    }
+  });
+
+  it("parses a workflow with conditional branches", () => {
+    const source = `
+WORKFLOW Checkout
+  STEP validate_cart
+  STEP charge_card
+  IF charge_card.success
+    STEP send_receipt
+  ELSE
+    STEP send_failure_email
+  END
+END
+`;
+    const parser = new Parser(source, "workflows.flow");
+    const result = parser.detectAndParse();
+    
+    expect(result.diagnostics).toHaveLength(0);
+    expect(result.type).toBe("workflows");
+    if (result.type === "workflows") {
+      expect(result.nodes).toHaveLength(1);
+      const workflow = result.nodes[0]!;
+      expect(workflow.name).toBe("Checkout");
+      expect(workflow.steps).toHaveLength(3);
+      expect(workflow.steps[0]?.kind).toBe("Step");
+      expect(workflow.steps[1]?.kind).toBe("Step");
+      expect(workflow.steps[2]?.kind).toBe("BranchStep");
+      if (workflow.steps[2]?.kind === "BranchStep") {
+        expect(workflow.steps[2].condition).toBe("charge_card.success");
+        expect(workflow.steps[2].trueSteps).toHaveLength(1);
+        expect(workflow.steps[2].falseSteps).toHaveLength(1);
+      }
     }
   });
 });

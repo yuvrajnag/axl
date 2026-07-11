@@ -51,4 +51,19 @@ APP Test -- Inline comment
       [TokenType.RightAngle, ">"],
     ]);
   });
+
+  it("handles hyphenated identifiers", () => {
+    const source = `APP my-awesome-app
+    ENTITY user-profile`;
+    const lexer = new Lexer(source, "test.flow");
+    const { tokens, diagnostics } = lexer.tokenize();
+    expect(diagnostics).toHaveLength(0);
+    const nonNewlines = tokens.filter(t => t.type !== TokenType.Newline && t.type !== TokenType.EOF);
+    expect(nonNewlines.map(t => [t.type, t.value])).toEqual([
+      [TokenType.Keyword, "APP"],
+      [TokenType.Identifier, "my-awesome-app"],
+      [TokenType.Keyword, "ENTITY"],
+      [TokenType.Identifier, "user-profile"],
+    ]);
+  });
 });

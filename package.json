@@ -18,7 +18,8 @@
     "init": "tsx packages/cli/index.ts init",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:packaging": "node scripts/test-packaging.js"
+    "test:packaging": "node scripts/test-packaging.js",
+    "package:vscode": "npm run package -w packages/vscode"
   },
   "keywords": [
     "axl",

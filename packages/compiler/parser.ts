@@ -274,8 +274,24 @@ export class Parser {
     const name = this.expectIdentifier("field name");
     this.expectColon();
     const type = this.parseTypeRef();
+
+    let relation: string | undefined;
+    if (!this.isAtEnd() && this.peekKeyword("RELATION")) {
+      this.advance();
+      const relToken = this.peek();
+      if (relToken.type === TokenType.Identifier || relToken.type === TokenType.Keyword) {
+         relation = relToken.value;
+         this.advance();
+      } else {
+         this.addDiagnostic(relToken.location, "AXL251", `Expected 'one' or 'many' after RELATION, got '${relToken.value}'`);
+         if (relToken.type !== TokenType.Newline && relToken.type !== TokenType.EOF) {
+           this.advance();
+         }
+      }
+    }
+
     this.skipNewlines();
-    return { kind: "Field", location: loc, name, type };
+    return { kind: "Field", location: loc, name, type, relation };
   }
 
   // -------------------------------------------------------------------------
@@ -477,19 +493,25 @@ export class Parser {
     const name = this.expectIdentifier("workflow name");
     this.skipNewlines();
 
+    const steps = this.parseSteps(new Set(["END"]));
+    if (this.peekKeyword("END")) {
+      this.advance();
+    }
+    return { kind: "Workflow", location: loc, name, steps };
+  }
+
+  private parseSteps(terminators: Set<string>): StepNode[] {
     const steps: StepNode[] = [];
     while (!this.isAtEnd()) {
       this.skipNewlines();
       this.skipComments();
       if (this.isAtEnd()) break;
 
-      // END keyword terminates the workflow (optional)
-      if (this.peekKeyword("END")) {
-        this.advance();
+      const peekToken = this.peek();
+      if (peekToken.type === TokenType.Keyword && terminators.has(peekToken.value)) {
         break;
       }
 
-      // Another WORKFLOW keyword starts a new block
       if (this.peekKeyword("WORKFLOW")) {
         break;
       }
@@ -499,13 +521,34 @@ export class Parser {
         this.advance();
         const actionRef = this.expectIdentifier("action reference");
         steps.push({ kind: "Step", location: stepLoc, actionRef });
-      } else if (this.peek().type !== TokenType.Newline && this.peek().type !== TokenType.EOF) {
-        this.addDiagnostic(this.peek().location, "AXL231", `Expected 'STEP' or 'END', got '${this.peek().value}'`);
+      } else if (this.peekKeyword("IF")) {
+        const stepLoc = this.peek().location;
+        this.advance();
+        let condition = this.expectIdentifier("condition");
+        if (!this.isAtEnd() && this.peek().type === TokenType.Dot) {
+          this.advance();
+          condition += "." + this.expectIdentifier("condition property");
+        }
+        this.skipNewlines();
+        const trueSteps = this.parseSteps(new Set(["ELSE", "END"]));
+        let falseSteps: StepNode[] | undefined;
+        if (this.peekKeyword("ELSE")) {
+          this.advance();
+          this.skipNewlines();
+          falseSteps = this.parseSteps(new Set(["END"]));
+        }
+        if (this.peekKeyword("END")) {
+          this.advance();
+        } else {
+          this.addDiagnostic(this.peek().location, "AXL232", `Expected 'END' to close IF block`);
+        }
+        steps.push({ kind: "BranchStep", location: stepLoc, condition, trueSteps, falseSteps });
+      } else if (peekToken.type !== TokenType.Newline && peekToken.type !== TokenType.EOF) {
+        this.addDiagnostic(peekToken.location, "AXL231", `Expected 'STEP', 'IF', or 'END', got '${peekToken.value}'`);
         this.advance();
       }
     }
-
-    return { kind: "Workflow", location: loc, name, steps };
+    return steps;
   }
 
   // -------------------------------------------------------------------------

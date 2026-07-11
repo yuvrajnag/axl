@@ -64,7 +64,7 @@ export async function generate(flowDir: string, outDir: string): Promise<void> {
     return;
   }
 
-  const generatedDir = path.resolve("generated");
+  const generatedDir = path.join(path.dirname(outDir), "generated");
   const start = performance.now();
   let totalFiles = 0;
 

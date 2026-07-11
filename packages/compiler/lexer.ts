@@ -274,7 +274,7 @@ export class Lexer {
   }
 
   private isIdentPart(ch: string): boolean {
-    return this.isAlpha(ch) || this.isDigit(ch) || ch === "_";
+    return this.isAlpha(ch) || this.isDigit(ch) || ch === "_" || ch === "-";
   }
 
   // -------------------------------------------------------------------------

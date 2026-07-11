@@ -79,7 +79,7 @@ export const KEYWORDS = new Set<string>([
   "LANGUAGE", "DATABASE", "BASE_URL", "GENERATORS",
 
   // Schema
-  "ENTITY",
+  "ENTITY", "RELATION",
 
   // Actions
   "ACTION", "DESC", "INPUT", "OUTPUT", "ENDPOINT",
@@ -88,7 +88,7 @@ export const KEYWORDS = new Set<string>([
   "REQUIRED", "OPTIONAL",
 
   // Workflows
-  "WORKFLOW", "STEP", "END",
+  "WORKFLOW", "STEP", "END", "IF", "ELSE",
 
   // Auth
   "PERMISSION", "CONFIRM", "RATE_LIMIT",
@@ -186,6 +186,7 @@ export interface ManifestField {
   readonly name: string;
   readonly type: string;
   readonly required?: boolean;
+  readonly relation?: string;
 }
 
 export interface ManifestEntity {
@@ -212,9 +213,17 @@ export interface ManifestAction {
   readonly confirm: string | null;
 }
 
+export type ManifestStep = string | ManifestBranch;
+
+export interface ManifestBranch {
+  readonly if: string;
+  readonly then: ManifestStep[];
+  readonly else?: ManifestStep[];
+}
+
 export interface ManifestWorkflow {
   readonly name: string;
-  readonly steps: string[];
+  readonly steps: ManifestStep[];
 }
 
 export interface ManifestRateLimit {

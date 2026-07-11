@@ -196,7 +196,7 @@ export class AxlEngine {
     
     return this._continueWorkflow({
       workflowName,
-      stepIndex: 0,
+      remainingSteps: [...workflowDef.steps],
       args: { ...initialArgs },
       context,
       workflowRunId: crypto.randomUUID()
@@ -209,8 +209,26 @@ export class AxlEngine {
   async _continueWorkflow(state) {
     const workflowDef = this.getWorkflowDef(state.workflowName);
     
-    while (state.stepIndex < workflowDef.steps.length) {
-      const actionName = workflowDef.steps[state.stepIndex];
+    while (state.remainingSteps && state.remainingSteps.length > 0) {
+      const step = state.remainingSteps[0];
+      
+      if (typeof step === 'object' && step.if) {
+        const parts = step.if.split('.');
+        let conditionValue = state.args;
+        for (const p of parts) {
+          conditionValue = conditionValue?.[p];
+        }
+        
+        state.remainingSteps.shift();
+        if (conditionValue) {
+           state.remainingSteps.unshift(...step.then);
+        } else if (step.else) {
+           state.remainingSteps.unshift(...step.else);
+        }
+        continue;
+      }
+
+      const actionName = step;
       
       const result = await this.execute(actionName, state.args, state.context);
       
@@ -223,10 +241,11 @@ export class AxlEngine {
       }
       
       if (result && typeof result === "object") {
+        state.args[actionName] = result;
         state.args = { ...state.args, ...result };
       }
       
-      state.stepIndex++;
+      state.remainingSteps.shift();
     }
     
     return {
@@ -252,10 +271,12 @@ export class AxlEngine {
     this.pausedWorkflows.delete(token);
     
     if (result && typeof result === "object") {
+      const actionName = state.remainingSteps[0];
+      state.args[actionName] = result;
       state.args = { ...state.args, ...result };
     }
     
-    state.stepIndex++;
+    state.remainingSteps.shift();
     return this._continueWorkflow(state);
   }
 }
