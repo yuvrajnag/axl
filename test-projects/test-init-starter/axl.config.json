@@ -1,0 +1,6 @@
+{
+  "name": "test-init-starter",
+  "flowDir": "./flow",
+  "outDir": "./build",
+  "generatedDir": "./generated"
+}

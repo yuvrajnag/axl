@@ -280,7 +280,7 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
       writeIfNew(path.join(flowDir, "workflows.flow"), WORKFLOWS_TEMPLATE);
       writeIfNew(path.join(flowDir, "auth.flow"), AUTH_TEMPLATE);
     } else {
-      writeIfNew(path.join(flowDir, "app.flow"), "");
+      writeIfNew(path.join(flowDir, "app.flow"), appTemplate(projectName));
       writeIfNew(path.join(flowDir, "schema.flow"), "");
       writeIfNew(path.join(flowDir, "actions.flow"), "");
       writeIfNew(path.join(flowDir, "workflows.flow"), "");
