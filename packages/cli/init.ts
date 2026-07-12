@@ -292,15 +292,6 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
     const agentPath = path.join(root, "AGENT.md");
     writeIfNew(agentPath, AGENT_TEMPLATE);
 
-    // AI hidden rules for Copilot, Cursor, Windsurf
-    writeIfNew(path.join(root, ".cursorrules"), AGENT_TEMPLATE);
-    writeIfNew(path.join(root, ".windsurfrules"), AGENT_TEMPLATE);
-    
-    const githubDir = path.join(root, ".github");
-    if (!fs.existsSync(githubDir)) {
-      fs.mkdirSync(githubDir, { recursive: true });
-    }
-    writeIfNew(path.join(githubDir, "copilot-instructions.md"), AGENT_TEMPLATE);
     steps.update(idx++, "done");
 
     // Preparing workspace
