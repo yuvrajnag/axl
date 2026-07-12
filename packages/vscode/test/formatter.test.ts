@@ -11,13 +11,13 @@ describe("Formatter", () => {
     const result = formatFlowSource(input);
 
     expect(result).toContain("ENTITY Project");
-    expect(result).toContain("id : String");
-    expect(result).toContain("name : String");
-    // All lines should start with 0 indentation (top-level declarations)
+    expect(result).toContain("  id : String");
+    expect(result).toContain("  name : String");
+    // Only top level should start with 0 indentation
     const lines = result.split("\n").filter(l => l.trim().length > 0);
-    for (const line of lines) {
-      expect(line).toBe(line.trimStart()); // No excess indent at top level
-    }
+    expect(lines[0]).toBe("ENTITY Project");
+    expect(lines[1]).toBe("  id : String");
+    expect(lines[2]).toBe("  name : String");
   });
 
   it("should remove excessive blank lines", () => {
@@ -29,7 +29,7 @@ describe("Formatter", () => {
   });
 
   it("should trim trailing whitespace", () => {
-    const input = `ENTITY Project   \nid : String    \n`;
+    const input = `ENTITY Project   \n  id : String    \n`;
     const result = formatFlowSource(input);
 
     const lines = result.split("\n");
@@ -41,17 +41,17 @@ describe("Formatter", () => {
   });
 
   it("should ensure trailing newline", () => {
-    const input = `ENTITY Project\nid : String`;
+    const input = `ENTITY Project\n  id : String`;
     const result = formatFlowSource(input);
     expect(result.endsWith("\n")).toBe(true);
   });
 
   it("should preserve a single blank line between blocks", () => {
-    const input = `ENTITY Project\nid : String\n\nENTITY Task\nid : String\n`;
+    const input = `ENTITY Project\n  id : String\n\nENTITY Task\n  id : String\n`;
     const result = formatFlowSource(input);
 
-    expect(result).toContain("ENTITY Project\n");
-    expect(result).toContain("\nENTITY Task\n");
+    expect(result).toContain("ENTITY Project\n  id : String\n");
+    expect(result).toContain("\nENTITY Task\n  id : String\n");
   });
 
   it("should format a complete flow file", () => {
@@ -68,10 +68,9 @@ describe("Formatter", () => {
 
     const result = formatFlowSource(input);
 
-    // All trimmed to zero indent (top-level)
     expect(result).toContain("ACTION list_projects");
-    expect(result).toContain("DESC \"List all projects\"");
-    expect(result).toContain("OUTPUT List<Project>");
-    expect(result).toContain("ENDPOINT GET /projects");
+    expect(result).toContain("  DESC \"List all projects\"");
+    expect(result).toContain("  OUTPUT List<Project>");
+    expect(result).toContain("  ENDPOINT GET /projects");
   });
 });

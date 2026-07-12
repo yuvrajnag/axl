@@ -34,9 +34,9 @@ export async function info(config: any, paths: any): Promise<void> {
   if (manifest) {
     section("Manifest Statistics");
     const stats = [
-      { key: "Entities", value: Object.keys(manifest.entities || {}).length.toString() },
-      { key: "Workflows", value: Object.keys(manifest.workflows || {}).length.toString() },
-      { key: "Endpoints", value: manifest.endpoints?.length.toString() || "0" }
+      { key: "Entities", value: (manifest.entities?.length || 0).toString() },
+      { key: "Workflows", value: (manifest.workflows?.length || 0).toString() },
+      { key: "Endpoints", value: Object.values(manifest.actions || {}).filter((a: any) => a.endpoint).length.toString() }
     ];
     table(stats);
     blank();

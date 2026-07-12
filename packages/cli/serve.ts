@@ -20,10 +20,10 @@ export async function serve(outDir: string, options: { port?: number }) {
       message: `Could not find manifest.json at ${manifestPath}`,
       help: "Run axl compile first to generate the manifest."
     });
-    process.exit(1);
+    throw new Error("Manifest not found");
   }
 
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+  const { engine, manifest } = buildAxlServer(manifestPath);
 
   const app = express();
   
@@ -89,6 +89,7 @@ export async function serve(outDir: string, options: { port?: number }) {
         }
       });
       const { server } = buildAxlServer(manifestPath, {
+        engine,
         contextExtractor: () => {
           const store = requestContext.getStore();
           return {
@@ -123,12 +124,13 @@ export async function serve(outDir: string, options: { port?: number }) {
   // Global error handler
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error("Express error:", err);
-    res.status(500).json({ error: err.message });
+    const message = process.env.NODE_ENV === "production" ? "Internal Server Error" : err.message;
+    res.status(500).json({ error: message });
   });
 
   const port = options.port || 3939;
   
-  app.listen(port, () => {
+  const httpServer = app.listen(port, () => {
     section("AXL Server");
     console.log(`  ${c.success(icons.success)} ${c.primary("Running")}`);
     blank();
@@ -136,4 +138,17 @@ export async function serve(outDir: string, options: { port?: number }) {
     console.log(`  ${c.secondary("MCP Endpoint")}  ${c.accent(`http://localhost:${port}/mcp`)}`);
     blank();
   });
+
+  const shutdown = () => {
+    console.log(`\n  ${c.warning(icons.warning)} ${c.plain("Shutting down AXL server...")}`);
+    httpServer.close(() => {
+      if (engine && typeof engine.destroy === 'function') {
+        engine.destroy();
+      }
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }

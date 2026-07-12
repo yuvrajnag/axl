@@ -39,7 +39,7 @@ export async function validate(flowDir: string, skipSection = false): Promise<vo
       message: `Directory: ${resolvedDir}`,
       help: "Run axl init to create a new project."
     });
-    process.exit(1);
+    throw new Error("No .flow files found");
   }
 
   const start = performance.now();
@@ -79,7 +79,7 @@ export async function validate(flowDir: string, skipSection = false): Promise<vo
       location: firstError.location ? `${firstError.location.file}:${firstError.location.line || 1}:${firstError.location.column || 1}` : undefined,
       help: "Fix the errors above and run again."
     });
-    process.exit(1);
+    throw new Error("Validation failed");
   } else {
     steps.update(idx++, "done", warnings.length > 0 ? `${warnings.length} warnings` : undefined);
     steps.stop();

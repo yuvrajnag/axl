@@ -30,7 +30,6 @@ An AXL project consists of up to 5 `.flow` files in a single directory:
 
 ### Reserved Keywords
 
-`APP`, `NAME`, `VERSION`, `DESCRIPTION`, `FRAMEWORK`, `LANGUAGE`, `DATABASE`, `BASE_URL`, `ENTITY`, `ACTION`, `DESC`, `INPUT`, `OUTPUT`, `ENDPOINT`, `WORKFLOW`, `STEP`, `END`, `PERMISSION`, `CONFIRM`, `RATE_LIMIT`, `REQUIRED`, `OPTIONAL`, `PUBLIC`, `AUTH`, `OTP`, `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
 `APP`, `NAME`, `VERSION`, `DESCRIPTION`, `FRAMEWORK`, `LANGUAGE`, `DATABASE`, `BASE_URL`, `ENTITY`, `ACTION`, `DESC`, `INPUT`, `OUTPUT`, `ENDPOINT`, `WORKFLOW`, `STEP`, `END`, `PERMISSION`, `CONFIRM`, `RATE_LIMIT`, `REQUIRED`, `OPTIONAL`, `PUBLIC`, `AUTH`, `OTP`, `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `GENERATORS`.
 
 ### Built-in Types
@@ -55,8 +54,7 @@ DATABASE PostgreSQL
 BASE_URL https://api.bananazon.com
 
 GENERATORS
-  MCP
-  OPENAPI
+  DIAGRAM
 ```
 
 ### Generators (AI Outputs)
@@ -64,8 +62,7 @@ GENERATORS
 AXL uses the `GENERATORS` block to define which AI-ready artifacts the compiler should produce. These are strictly used by `axl generate` and do not affect the runtime.
 
 The following generator IDs are reserved:
-- `MCP`: Model Context Protocol server.
-- `OPENAPI`: OpenAPI 3.0 specs optimized for LLMs.
+- `DIAGRAM`: A visual workflow diagram representation.
 - `AGENT`: AI agent manifests/scaffolding.
 - `DOCS`: Semantic documentation for AI retrieval.
 - `SDK_TS`: TypeScript SDK.

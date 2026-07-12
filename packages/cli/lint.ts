@@ -28,7 +28,7 @@ export async function lint(flowDir: string): Promise<void> {
       const trimmed = line.trim();
       
       // Check for TODOs
-      if (trimmed.includes("// TODO") || trimmed.includes("// FIXME")) {
+      if (trimmed.includes("-- TODO") || trimmed.includes("-- FIXME")) {
         if (!env.isQuiet) {
           console.log(`  ${c.warning("⚠")} ${c.primary(file)}:${index + 1}  Unresolved TODO/FIXME`);
         }
@@ -36,10 +36,9 @@ export async function lint(flowDir: string): Promise<void> {
       }
 
       // Check for endpoints missing descriptions
-      if (trimmed.startsWith("endpoint ") && !content.includes("@description") && !content.substring(Math.max(0, content.indexOf(line) - 100), content.indexOf(line)).includes("@description")) {
-        // Very rough heuristic, just for demo
+      if (trimmed.startsWith("ENDPOINT ") && !content.includes("DESC ") && !content.substring(Math.max(0, content.indexOf(line) - 100), content.indexOf(line)).includes("DESC ")) {
         if (!env.isQuiet) {
-          console.log(`  ${c.warning("⚠")} ${c.primary(file)}:${index + 1}  Endpoint may be missing @description`);
+          console.log(`  ${c.warning("⚠")} ${c.primary(file)}:${index + 1}  Endpoint may be missing description`);
         }
         lintWarnings++;
       }

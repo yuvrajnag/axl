@@ -58,8 +58,7 @@ export async function generate(flowDir: string, outDir: string): Promise<void> {
     console.log(`  ${c.plain("Add a GENERATORS block:")}`);
     blank();
     console.log(`    ${c.plain("GENERATORS")}`);
-    console.log(`      ${c.plain("MCP")}`);
-    console.log(`      ${c.plain("OPENAPI")}`);
+    console.log(`      ${c.plain("DIAGRAM")}`);
     blank();
     return;
   }

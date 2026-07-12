@@ -1,8 +1,9 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { buildAxlServer } from "../src/axl-server.js";
+import { fileURLToPath } from "url";
 
-const APP_FLOW = new URL("../build/manifest.json", import.meta.url).pathname;
+const APP_FLOW = fileURLToPath(new URL("../build/manifest.json", import.meta.url));
 
 function extractJson(result) {
   return JSON.parse(result.content[0].text);
@@ -13,7 +14,7 @@ async function main() {
   const registerRes = await fetch("http://localhost:4000/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "founder@axl.dev", password: "pw123" }),
+    body: JSON.stringify({ email: `founder_${Date.now()}@axl.dev`, password: "pw123" }),
   });
   const { sid } = await registerRes.json();
   const sessionCookie = `sid=${sid}`;

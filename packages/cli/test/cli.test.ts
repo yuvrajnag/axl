@@ -21,7 +21,7 @@ describe("AXL CLI", () => {
     execSync("npm run build", { cwd: path.resolve(__dirname, "../../..") });
     fs.rmSync(TEST_DIR, { recursive: true, force: true });
     fs.mkdirSync(TEST_DIR, { recursive: true });
-  });
+  }, 30000);
 
   afterAll(() => {
     fs.rmSync(TEST_DIR, { recursive: true, force: true });
@@ -72,8 +72,7 @@ describe("AXL CLI", () => {
       const initDir = path.join(TEST_DIR, "myproject");
       const appFlow = fs.readFileSync(path.join(initDir, "flow/app.flow"), "utf-8");
       expect(appFlow).toContain("GENERATORS");
-      expect(appFlow).toContain("MCP");
-      expect(appFlow).toContain("OPENAPI");
+      expect(appFlow).toContain("DIAGRAM");
     });
   });
 
@@ -112,8 +111,7 @@ describe("AXL CLI", () => {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
       expect(manifest.app).toBeDefined();
       expect(manifest.app.name).toBe("myproject");
-      expect(manifest.app.generators).toContain("MCP");
-      expect(manifest.app.generators).toContain("OPENAPI");
+      expect(manifest.app.generators).toContain("DIAGRAM");
     });
   });
 
@@ -130,14 +128,15 @@ describe("AXL CLI", () => {
       expect(result.stdout).toContain("Generating from manifest");
     });
 
-    it("should create MCP and OpenAPI output files", () => {
+    it("should create diagram output files", () => {
       const initDir = path.join(TEST_DIR, "myproject");
-      const genDir = path.join(initDir, "generated");
+      const genDir = path.join(initDir, "generated/docs");
 
-      // MCP generator should create files
+      // DIAGRAM generator should create files
       expect(fs.existsSync(genDir)).toBe(true);
       const genFiles = fs.readdirSync(genDir);
       expect(genFiles.length).toBeGreaterThan(0);
+      expect(genFiles).toContain("schema.md");
     });
 
     it("should warn when manifest has no generators", () => {

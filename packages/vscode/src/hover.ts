@@ -69,7 +69,11 @@ function formatWorkflowHover(workflow: WorkflowNode): string {
   if (workflow.steps.length > 0) {
     lines.push("**Steps**");
     for (const step of workflow.steps) {
-      lines.push(`- \`${step.actionRef}\``);
+      if (step.kind === "Step") {
+        lines.push(`- \`${step.actionRef}\``);
+      } else if (step.kind === "BranchStep") {
+        lines.push(`- \`IF ${step.condition}\``);
+      }
     }
   }
   return lines.join("\n").trim();

@@ -35,6 +35,32 @@ export class AxlEngine {
     this.idempotencyCache = new Map();
     // paused workflows: token -> workflow state
     this.pausedWorkflows = new Map();
+    // Rate limits: key -> { count, windowEnd }
+    this.rateLimits = new Map();
+
+    // Start cleanup sweep every minute
+    this.cleanupInterval = setInterval(() => this._sweep(), 60000);
+    if (this.cleanupInterval.unref) this.cleanupInterval.unref();
+  }
+
+  destroy() {
+    clearInterval(this.cleanupInterval);
+  }
+
+  _sweep() {
+    const now = Date.now();
+    for (const [token, pending] of this.pendingConfirmations.entries()) {
+      if (now > pending.expiresAt) this.pendingConfirmations.delete(token);
+    }
+    for (const [key, entry] of this.idempotencyCache.entries()) {
+      if (now > entry.expiresAt) this.idempotencyCache.delete(key);
+    }
+    for (const [token, state] of this.pausedWorkflows.entries()) {
+      if (now > state.expiresAt) this.pausedWorkflows.delete(token);
+    }
+    for (const [key, limit] of this.rateLimits.entries()) {
+      if (now > limit.windowEnd) this.rateLimits.delete(key);
+    }
   }
 
   getActionDef(actionName) {
@@ -69,6 +95,39 @@ export class AxlEngine {
     throw new Error(`Unknown permission level: ${actionDef.permission}`);
   }
 
+  _checkRateLimit(actionName, context) {
+    const rlStr = this.manifest.rateLimits?.[actionName];
+    if (!rlStr) return;
+
+    const clientKey = context?.sessionCookie || context?.ip || 'anon';
+    const key = `${actionName}:${clientKey}`;
+
+    const match = rlStr.match(/^(\d+)\/(sec|min|hr|day)$/);
+    if (!match) return; // ignore invalid formats
+
+    const limit = parseInt(match[1], 10);
+    const unit = match[2];
+    const msPerUnit = { sec: 1000, min: 60000, hr: 3600000, day: 86400000 }[unit];
+
+    const now = Date.now();
+    let record = this.rateLimits.get(key);
+
+    if (record && now > record.windowEnd) {
+      this.rateLimits.delete(key);
+      record = undefined;
+    }
+
+    if (!record) {
+      record = { count: 0, windowEnd: now + msPerUnit };
+      this.rateLimits.set(key, record);
+    }
+
+    if (record.count >= limit) {
+      throw new Error(`Rate limit exceeded for action "${actionName}".`);
+    }
+    record.count++;
+  }
+
   /**
    * Runs the real HTTP call against the site's backend. No permission or
    * confirm logic here -- callers must have already cleared those gates.
@@ -91,7 +150,13 @@ export class AxlEngine {
     }
 
     const finalUrl = fetchOpts.url || url;
-    const res = await fetch(finalUrl, fetchOpts);
+    let res;
+    try {
+      res = await fetch(finalUrl, fetchOpts);
+    } catch (error) {
+      throw new BackendError(`Network error connecting to backend: ${error.message}`, 502, { error: error.message });
+    }
+
     const text = await res.text();
     let body;
     try { body = text ? JSON.parse(text) : null; } catch { body = text; }
@@ -112,12 +177,14 @@ export class AxlEngine {
   async execute(actionName, args, context) {
     const actionDef = this.getActionDef(actionName);
     this.checkPermission(actionDef, context);
+    this._checkRateLimit(actionName, context);
 
     let cacheKey;
     if (context && context.idempotencyKey) {
       cacheKey = `${context.sessionCookie || 'anon'}:${actionName}:${context.idempotencyKey}`;
-      if (this.idempotencyCache.has(cacheKey)) {
-        return this.idempotencyCache.get(cacheKey);
+      const entry = this.idempotencyCache.get(cacheKey);
+      if (entry && Date.now() <= entry.expiresAt) {
+        return entry.result;
       }
     }
 
@@ -131,14 +198,13 @@ export class AxlEngine {
       const result = {
         confirmationRequired: true,
         token,
-        // In production this gets sent via SMS/email, never returned in the
-        // response. Returned here only because this is a demo environment.
-        otp_demo_only: otp,
+        // In production this gets sent via SMS/email, never returned in the response.
+        ...(process.env.NODE_ENV !== "production" ? { otp_demo_only: otp } : {}),
         message: `Action "${actionName}" requires confirmation. Call confirm_action with this token and the OTP.`,
       };
       
       if (cacheKey) {
-        this.idempotencyCache.set(cacheKey, result);
+        this.idempotencyCache.set(cacheKey, { result, expiresAt: Date.now() + 86400000 }); // 24hr TTL
       }
       
       return result;
@@ -146,7 +212,7 @@ export class AxlEngine {
 
     const result = await this._executeHttp(actionName, actionDef, args, context);
     if (cacheKey) {
-      this.idempotencyCache.set(cacheKey, result);
+      this.idempotencyCache.set(cacheKey, { result, expiresAt: Date.now() + 86400000 }); // 24hr TTL
     }
     return result;
   }
@@ -182,7 +248,7 @@ export class AxlEngine {
     // Update cache with the final executed result
     if (pending.context && pending.context.idempotencyKey) {
       const cacheKey = `${pending.context.sessionCookie || 'anon'}:${pending.actionName}:${pending.context.idempotencyKey}`;
-      this.idempotencyCache.set(cacheKey, result);
+      this.idempotencyCache.set(cacheKey, { result, expiresAt: Date.now() + 86400000 });
     }
     
     return result;
@@ -233,6 +299,7 @@ export class AxlEngine {
       const result = await this.execute(actionName, state.args, state.context);
       
       if (result && result.confirmationRequired) {
+        state.expiresAt = Date.now() + 86400000; // 24hr TTL for paused workflows
         this.pausedWorkflows.set(result.token, state);
         return {
           ...result,

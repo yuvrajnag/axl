@@ -23,7 +23,7 @@ promptsStyle.symbol = (done: boolean, aborted: boolean) => {
 // Templates
 // ---------------------------------------------------------------------------
 
-function appTemplate(name: string, framework: string, language: string, database: string): string {
+function appTemplate(name: string): string {
   return `-- app.flow
 -- AXL Application Definition
 
@@ -35,17 +35,10 @@ VERSION 1.0.0
 
 DESCRIPTION "An AXL-powered application"
 
-FRAMEWORK ${framework}
-
-LANGUAGE ${language}
-
-DATABASE ${database}
-
 BASE_URL http://localhost:3000/api
 
 GENERATORS
-  MCP
-  OPENAPI
+  DIAGRAM
 `;
 }
 
@@ -168,9 +161,6 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
   const root = path.resolve(targetDir);
   const defaultName = path.basename(root);
   let projectName = defaultName;
-  let framework = "Express";
-  let language = "TypeScript";
-  let database = "PostgreSQL";
   let flowTemplate = "Starter";
   let initGitRepo = false;
 
@@ -184,47 +174,6 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
         name: 'projectName',
         message: 'Project Name',
         initial: defaultName
-      },
-      {
-        type: 'select',
-        name: 'framework',
-        message: 'Framework',
-        choices: [
-          { title: 'Spring Boot', value: 'SpringBoot' },
-          { title: 'Express', value: 'Express' },
-          { title: 'NestJS', value: 'NestJS' },
-          { title: 'FastAPI', value: 'FastAPI' },
-          { title: 'Django', value: 'Django' }
-        ]
-      },
-      {
-        type: prev => prev === 'SpringBoot' ? 'select' : null,
-        name: 'javaVersion',
-        message: 'Java Version',
-        choices: [
-          { title: '21 LTS', value: 'Java' },
-          { title: '17 LTS', value: 'Java' }
-        ]
-      },
-      {
-        type: (prev, values) => (values.framework === 'Express' || values.framework === 'NestJS') ? 'select' : null,
-        name: 'language',
-        message: 'Language',
-        choices: [
-          { title: 'TypeScript', value: 'TypeScript' },
-          { title: 'JavaScript', value: 'JavaScript' }
-        ]
-      },
-      {
-        type: 'select',
-        name: 'database',
-        message: 'Database',
-        choices: [
-          { title: 'PostgreSQL', value: 'PostgreSQL' },
-          { title: 'MySQL', value: 'MySQL' },
-          { title: 'MongoDB', value: 'MongoDB' },
-          { title: 'SQLite', value: 'SQLite' }
-        ]
       },
       {
         type: 'select',
@@ -250,15 +199,6 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
     });
 
     projectName = response.projectName;
-    framework = response.framework;
-    if (framework === 'SpringBoot') {
-      language = 'Java';
-    } else if (framework === 'FastAPI' || framework === 'Django') {
-      language = 'Python';
-    } else {
-      language = response.language || 'TypeScript';
-    }
-    database = response.database;
     flowTemplate = response.flowTemplate;
     initGitRepo = response.initGitRepo || false;
   }
@@ -290,7 +230,7 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
     // Generating Flow files
     steps.update(idx, "active");
     if (flowTemplate === 'Starter') {
-      writeIfNew(path.join(flowDir, "app.flow"), appTemplate(projectName, framework, language, database));
+      writeIfNew(path.join(flowDir, "app.flow"), appTemplate(projectName));
       writeIfNew(path.join(flowDir, "schema.flow"), SCHEMA_TEMPLATE);
       writeIfNew(path.join(flowDir, "actions.flow"), ACTIONS_TEMPLATE);
       writeIfNew(path.join(flowDir, "workflows.flow"), WORKFLOWS_TEMPLATE);

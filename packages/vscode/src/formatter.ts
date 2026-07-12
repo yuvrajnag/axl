@@ -13,33 +13,43 @@
 export function formatFlowSource(code: string): string {
   const lines = code.split(/\r?\n/);
   const formatted: string[] = [];
-
+  
   let indent = 0;
-
+  const TOP_LEVEL_KEYWORDS = [
+    "APP", "NAME", "VERSION", "DESCRIPTION", "FRAMEWORK", "LANGUAGE", "DATABASE", "BASE_URL", "GENERATORS",
+    "ENTITY", "ACTION", "WORKFLOW", "PERMISSION", "CONFIRM", "RATE_LIMIT"
+  ];
+  
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i]!.trim();
-
+    
     if (line.length === 0) {
       if (formatted.length > 0 && formatted[formatted.length - 1] !== "") {
         formatted.push("");
       }
       continue;
     }
-
-    if (line.includes("}")) {
-      indent = Math.max(0, indent - 1);
+    
+    const firstWord = line.split(/\s+/)[0];
+    
+    if (firstWord === "END" || firstWord === "ELSE") {
+      indent = Math.max(1, indent - 1);
     }
-
+    
+    if (TOP_LEVEL_KEYWORDS.includes(firstWord!) || line.startsWith("--")) {
+      indent = 0;
+    }
+    
     let spaces = "  ".repeat(indent);
-
     formatted.push(spaces + line);
-
-    if (line.includes("{")) {
+    
+    if (firstWord && ["ENTITY", "ACTION", "WORKFLOW"].includes(firstWord)) {
+      indent = 1;
+    } else if (firstWord === "IF" || firstWord === "ELSE") {
       indent++;
     }
   }
-
-  // Ensure trailing newline
+  
   let result = formatted.join("\n").replace(/\n{3,}/g, "\n\n").trim();
   return result + "\n";
 }

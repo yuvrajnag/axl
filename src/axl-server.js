@@ -4,15 +4,15 @@ import { z } from "zod";
 import { loadManifest } from "./manifest.js";
 import { AxlEngine, PermissionError, BackendError } from "./engine.js";
 
-export function buildAxlServer(manifestPath, { sessionCookie, contextExtractor } = {}) {
+export function buildAxlServer(manifestPath, { sessionCookie, contextExtractor, engine } = {}) {
   const manifest = loadManifest(manifestPath);
-  const engine = new AxlEngine(manifest);
+  const actualEngine = engine || new AxlEngine(manifest);
   const server = new McpServer({
     name: `axl-${manifest.app.name.toLowerCase().replace(/\s+/g, "-")}`,
     version: manifest.axl_version || manifest.app.version || "1.0",
   });
-  registerTools(server, manifest, engine, sessionCookie, contextExtractor);
-  return { server, engine, manifest };
+  registerTools(server, manifest, actualEngine, sessionCookie, contextExtractor);
+  return { server, engine: actualEngine, manifest };
 }
 
 /**
