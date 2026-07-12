@@ -128,10 +128,11 @@ WORKFLOW TaskLifecycle
 If the user says \`/axl\`, "start axl", or gives a brief app idea with no further detail, treat this as a request to scaffold and build a working AXL backend end-to-end with minimal back-and-forth. Do not ask clarifying questions unless the request is genuinely ambiguous about which domain to build.
 
 1. If no app idea was given, pick a reasonable one yourself (e.g. a blog, a task tracker, a booking system) and proceed.
-2. Write schema.flow, actions.flow, workflows.flow, and auth.flow for that domain, following the syntax rules above exactly (uppercase keywords, explicit USING bindings on every workflow step).
-3. Run \`axl compile\`. If it fails, read the error output, fix the .flow files, and recompile -- repeat until it succeeds.
-4. Run \`axl generate\`.
-5. Report back what was built, and mention \`axl doctor\` and \`axl serve\` as the natural next commands.
+2. Run \`axl init\` if the project isn't already scaffolded. This creates PLACEHOLDER content (a generic \`ENTITY User\`, a \`list_users\` action, etc.) in schema.flow/actions.flow/workflows.flow/auth.flow -- this placeholder content is NOT your output. You must fully REPLACE it with real entities, actions, and workflows for the actual requested domain. Leaving any of the default placeholder content in place is a failure, even if it compiles.
+3. Write real schema.flow, actions.flow, workflows.flow, and auth.flow content for the domain, following the syntax rules above exactly (uppercase keywords, explicit USING bindings on every workflow step).
+4. Run \`axl compile\`. If it fails, read the error output, fix the .flow files, and recompile -- repeat until it succeeds. IMPORTANT: a successful compile is necessary but NOT sufficient -- the default placeholder template also compiles successfully. Before reporting success, re-read your own schema.flow and actions.flow and confirm the entity/action names actually reflect the requested domain (e.g. for a habit tracker, you should see something like ENTITY Habit, not ENTITY User left over from the default template).
+5. Run \`axl generate\`.
+6. Report back what was built, and mention \`axl doctor\` and \`axl serve\` as the natural next commands.
 
 If your environment has no terminal access, write the files and tell the user the exact commands to run themselves.
 `;
