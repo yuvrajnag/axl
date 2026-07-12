@@ -299,13 +299,15 @@ export class Validator {
   }
 
   // -------------------------------------------------------------------------
-  // Action reference checks
+  // Action reference and Binding checks
   // -------------------------------------------------------------------------
 
   private checkWorkflowActionReferences(): void {
-    const checkSteps = (steps: readonly import("./ast.js").StepNode[], workflowName: string) => {
+    const checkSteps = (steps: readonly import("./ast.js").StepNode[], workflowName: string, stepContext: { index: number, previousSteps: Map<string, ActionNode>, firstStepInputs: Set<string> }) => {
       for (const step of steps) {
         if (step.kind === "Step") {
+          let actionNode: ActionNode | undefined;
+          
           if (!this.actionNames.has(step.actionRef)) {
             const suggestion = this.findSimilar(step.actionRef, this.actionNames);
             this.error(
@@ -314,18 +316,99 @@ export class Validator {
               `Workflow "${workflowName}" references unknown action "${step.actionRef}"`,
               suggestion ? `Did you mean "${suggestion}"?` : undefined,
             );
+          } else {
+            actionNode = this.ast.actions.find(a => a.name === step.actionRef);
+            if (actionNode) {
+              if (stepContext.index === 0) {
+                // This is the first step, record its inputs as top-level workflow inputs
+                for (const input of actionNode.inputs) {
+                  stepContext.firstStepInputs.add(input.name);
+                }
+              }
+              
+              // Validate bindings
+              const boundTargets = new Set<string>();
+              if (step.bindings) {
+                for (const binding of step.bindings) {
+                  boundTargets.add(binding.targetField);
+                  
+                  // Check source step exists before this step
+                  const sourceAction = stepContext.previousSteps.get(binding.sourceStep);
+                  if (!sourceAction) {
+                    this.error(
+                      step.location,
+                      "AXL335",
+                      `Binding source step "${binding.sourceStep}" is not a prior step in workflow "${workflowName}"`
+                    );
+                    continue;
+                  }
+                  
+                  // Check source field exists on source action's output entity
+                  const outputTypeName = sourceAction.output.name;
+                  const outputEntity = this.ast.entities.find(e => e.name === outputTypeName);
+                  if (outputEntity) {
+                    const hasField = outputEntity.fields.some(f => f.name === binding.sourceField);
+                    if (!hasField) {
+                      this.error(
+                        step.location,
+                        "AXL336",
+                        `Field "${binding.sourceField}" does not exist on entity "${outputTypeName}" (output of "${binding.sourceStep}")`
+                      );
+                    }
+                  } else if (PRIMITIVE_TYPES.has(outputTypeName)) {
+                     this.error(
+                        step.location,
+                        "AXL337",
+                        `Cannot bind field "${binding.sourceField}" from primitive output type "${outputTypeName}" of step "${binding.sourceStep}"`
+                     );
+                  }
+                  
+                  // Check target field exists on this action's input
+                  const hasTarget = actionNode.inputs.some(i => i.name === binding.targetField);
+                  if (!hasTarget) {
+                    this.error(
+                      step.location,
+                      "AXL338",
+                      `Target field "${binding.targetField}" is not a declared input of action "${actionNode.name}"`
+                    );
+                  }
+                }
+              }
+              
+              // Check for unbound required fields
+              for (const input of actionNode.inputs) {
+                if (input.required) {
+                  const isBound = boundTargets.has(input.name);
+                  const isTopLevelMatch = stepContext.firstStepInputs.has(input.name);
+                  
+                  if (!isBound && !isTopLevelMatch) {
+                    this.error(
+                      step.location,
+                      "AXL339",
+                      `Action "${actionNode.name}" requires input "${input.name}", which is neither bound via USING nor matches a top-level workflow input`
+                    );
+                  }
+                }
+              }
+              
+              stepContext.previousSteps.set(actionNode.name, actionNode);
+            }
           }
+          stepContext.index++;
         } else if (step.kind === "BranchStep") {
-          checkSteps(step.trueSteps, workflowName);
+          // Clone previous steps map so branches don't leak into each other or outer scope incorrectly
+          // Wait, actually branch steps can't be referenced easily. Let's just pass the map.
+          checkSteps(step.trueSteps, workflowName, stepContext);
           if (step.falseSteps) {
-            checkSteps(step.falseSteps, workflowName);
+            checkSteps(step.falseSteps, workflowName, stepContext);
           }
         }
       }
     };
 
     for (const workflow of this.ast.workflows) {
-      checkSteps(workflow.steps, workflow.name);
+      const stepContext = { index: 0, previousSteps: new Map<string, ActionNode>(), firstStepInputs: new Set<string>() };
+      checkSteps(workflow.steps, workflow.name, stepContext);
     }
   }
 

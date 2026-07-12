@@ -114,6 +114,29 @@ async function main() {
   }
   console.log("PASS: unauthenticated AUTH-gated action correctly denied.");
 
+  console.log("\n=== 11. Run TaskLifecycle workflow with bindings ===");
+  const wfResult = await client.callTool({
+    name: "run_workflow",
+    arguments: {
+      workflowName: "TaskLifecycle",
+      initialArgs: {
+        project_id: project.id,
+        title: "Workflow bound task",
+        status: "in-progress"
+      }
+    }
+  });
+  const wfData = extractJson(wfResult);
+  console.log(wfData);
+  if (wfData.status !== "COMPLETED") {
+    throw new Error(`FAIL: TaskLifecycle workflow failed: ${wfData.message || JSON.stringify(wfData)}`);
+  }
+  const updateResult = wfData.finalResult.update_task_status;
+  if (!updateResult || updateResult.status !== "in-progress") {
+     throw new Error(`FAIL: Workflow did not return correct final result! Got ${JSON.stringify(updateResult)}`);
+  }
+  console.log("PASS: TaskLifecycle workflow ran successfully with bindings.");
+
   console.log("\n✅ ALL CHECKS PASSED");
 }
 

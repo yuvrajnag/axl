@@ -1,14 +1,16 @@
 -- actions.flow
 
-ACTION search_products
+ACTION search_product
 
-  DESC "Search products"
+  DESC "Search product"
 
   INPUT
     query : String REQUIRED
     max_price : Number OPTIONAL
+    quantity : Number OPTIONAL
+    address : String OPTIONAL
 
-  OUTPUT List<Product>
+  OUTPUT Product
 
   ENDPOINT POST /search
 

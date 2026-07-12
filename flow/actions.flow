@@ -38,6 +38,7 @@ ENDPOINT GET /projects/{project_id}/tasks
   INPUT
   project_id : String REQUIRED
   title : String REQUIRED
+  status : String OPTIONAL
   due_date : String OPTIONAL
 
   OUTPUT Task

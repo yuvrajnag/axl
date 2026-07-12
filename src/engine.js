@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import { z } from "zod";
+import { buildZodShape } from "./schema-utils.js";
 
 /**
  * Fills {path_param} placeholders in an endpoint path using values from args,
@@ -260,10 +262,25 @@ export class AxlEngine {
   async runWorkflow(workflowName, initialArgs, context) {
     const workflowDef = this.getWorkflowDef(workflowName);
     
+    if (workflowDef.steps.length > 0) {
+      const firstStep = workflowDef.steps[0];
+      const actionName = typeof firstStep === "string" ? firstStep : firstStep.action;
+      if (actionName) {
+        const actionDef = this.getActionDef(actionName);
+        const schema = z.object(buildZodShape(actionDef.input));
+        try {
+          schema.parse(initialArgs || {});
+        } catch (err) {
+          throw new Error(`Invalid initial arguments for workflow "${workflowName}": ${err.message}`);
+        }
+      }
+    }
+    
     return this._continueWorkflow({
       workflowName,
       remainingSteps: [...workflowDef.steps],
       args: { ...initialArgs },
+      stepOutputs: {},
       context,
       workflowRunId: crypto.randomUUID()
     });
@@ -274,6 +291,11 @@ export class AxlEngine {
    */
   async _continueWorkflow(state) {
     const workflowDef = this.getWorkflowDef(state.workflowName);
+    
+    // Add stepOutputs if not present
+    if (!state.stepOutputs) {
+      state.stepOutputs = {};
+    }
     
     while (state.remainingSteps && state.remainingSteps.length > 0) {
       const step = state.remainingSteps[0];
@@ -294,31 +316,62 @@ export class AxlEngine {
         continue;
       }
 
-      const actionName = step;
-      
-      const result = await this.execute(actionName, state.args, state.context);
-      
-      if (result && result.confirmationRequired) {
-        state.expiresAt = Date.now() + 86400000; // 24hr TTL for paused workflows
-        this.pausedWorkflows.set(result.token, state);
-        return {
-          ...result,
-          message: `Workflow "${state.workflowName}" paused at step "${actionName}" for confirmation. Call resume_workflow with this token and the OTP.`
-        };
+      const isActionStep = typeof step === 'string' || (typeof step === 'object' && step.action);
+      if (isActionStep) {
+        const actionName = typeof step === 'string' ? step : step.action;
+        const bindings = typeof step === 'object' ? (step.bindings || []) : [];
+        
+        const actionDef = this.getActionDef(actionName);
+        const actionArgs = {};
+        
+        for (const binding of bindings) {
+          const sourceData = state.stepOutputs[binding.sourceStep];
+          if (!sourceData) {
+            throw new Error(`Workflow error: Source step ${binding.sourceStep} output not found.`);
+          }
+          actionArgs[binding.targetField] = sourceData[binding.sourceField];
+        }
+        
+        // Merge from initialArgs for unbound fields
+        for (const inputName of Object.keys(actionDef.input)) {
+           if (!(inputName in actionArgs) && (inputName in state.args)) {
+               actionArgs[inputName] = state.args[inputName];
+           }
+        }
+        
+        const schema = z.object(buildZodShape(actionDef.input));
+        try {
+          schema.parse(actionArgs);
+        } catch (err) {
+          throw new Error(`Workflow error at step "${actionName}": invalid inputs. ${err.message}`);
+        }
+        
+        const result = await this.execute(actionName, actionArgs, state.context);
+        
+        if (result && result.confirmationRequired) {
+          state.expiresAt = Date.now() + 86400000; // 24hr TTL for paused workflows
+          this.pausedWorkflows.set(result.token, state);
+          return {
+            ...result,
+            message: `Workflow "${state.workflowName}" paused at step "${actionName}" for confirmation. Call resume_workflow with this token and the OTP.`
+          };
+        }
+        
+        if (result && typeof result === "object") {
+          state.stepOutputs[actionName] = result;
+          // Keep args around for backward compatibility, but we don't flat merge.
+          // Wait, actually some things might rely on flat merge if they haven't been updated? 
+          // The goal of Task 1 is specifically to STOP spreading args.
+        }
+        
+        state.remainingSteps.shift();
       }
-      
-      if (result && typeof result === "object") {
-        state.args[actionName] = result;
-        state.args = { ...state.args, ...result };
-      }
-      
-      state.remainingSteps.shift();
     }
     
     return {
       status: "COMPLETED",
       workflowRunId: state.workflowRunId,
-      finalResult: state.args
+      finalResult: state.stepOutputs
     };
   }
 
@@ -338,9 +391,9 @@ export class AxlEngine {
     this.pausedWorkflows.delete(token);
     
     if (result && typeof result === "object") {
-      const actionName = state.remainingSteps[0];
-      state.args[actionName] = result;
-      state.args = { ...state.args, ...result };
+      const step = state.remainingSteps[0];
+      const actionName = typeof step === "string" ? step : step.action;
+      state.stepOutputs[actionName] = result;
     }
     
     state.remainingSteps.shift();

@@ -112,6 +112,7 @@ export class Lexer {
     if (ch === "?") { this.advance(); return this.makeToken(TokenType.Question, "?", loc); }
     if (ch === "=") { this.advance(); return this.makeToken(TokenType.Equals, "=", loc); }
     if (ch === "&") { this.advance(); return this.makeToken(TokenType.Ampersand, "&", loc); }
+    if (ch === ",") { this.advance(); return this.makeToken(TokenType.Comma, ",", loc); }
 
     // Identifier or keyword
     if (this.isIdentStart(ch)) {

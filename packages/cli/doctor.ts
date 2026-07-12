@@ -41,7 +41,7 @@ export async function doctor(flowDir: string): Promise<void> {
   const checks: Check[] = [];
 
   // ── CLI version ──
-  checks.push({ label: "CLI", status: "pass", detail: "v0.2.2" }); // Bumped to match package.json
+  checks.push({ label: "CLI", status: "pass", detail: "v0.2.3" }); // Bumped to match package.json
 
   // ── Compiler ──
   try {

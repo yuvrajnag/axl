@@ -2,8 +2,8 @@
 
 WORKFLOW Purchase
 
-  STEP search_products
-  STEP add_to_cart
-  STEP checkout
+  STEP search_product
+  STEP add_to_cart USING product_id = search_product.id
+  STEP checkout USING cart_id = add_to_cart.cart_id
 
 END

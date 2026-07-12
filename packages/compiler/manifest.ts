@@ -133,6 +133,12 @@ export class ManifestGenerator {
   private buildSteps(steps: readonly import("./ast.js").StepNode[]): import("./types.js").ManifestStep[] {
     return steps.map(step => {
       if (step.kind === "Step") {
+        if (step.bindings && step.bindings.length > 0) {
+          return { 
+            action: step.actionRef, 
+            bindings: [...step.bindings] 
+          };
+        }
         return step.actionRef;
       } else {
         return {

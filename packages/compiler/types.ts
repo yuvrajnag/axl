@@ -51,6 +51,7 @@ export enum TokenType {
   Question        = "Question",       // ?
   Equals          = "Equals",         // =
   Ampersand       = "Ampersand",      // &
+  Comma           = "Comma",          // ,
 
   // Structural
   Newline         = "Newline",
@@ -88,7 +89,7 @@ export const KEYWORDS = new Set<string>([
   "REQUIRED", "OPTIONAL",
 
   // Workflows
-  "WORKFLOW", "STEP", "END", "IF", "ELSE",
+  "WORKFLOW", "STEP", "END", "IF", "ELSE", "USING",
 
   // Auth
   "PERMISSION", "CONFIRM", "RATE_LIMIT",
@@ -213,7 +214,18 @@ export interface ManifestAction {
   readonly confirm: string | null;
 }
 
-export type ManifestStep = string | ManifestBranch;
+export interface ManifestStepBinding {
+  readonly targetField: string;
+  readonly sourceStep: string;
+  readonly sourceField: string;
+}
+
+export interface ManifestActionStep {
+  readonly action: string;
+  readonly bindings?: ManifestStepBinding[];
+}
+
+export type ManifestStep = string | ManifestActionStep | ManifestBranch;
 
 export interface ManifestBranch {
   readonly if: string;

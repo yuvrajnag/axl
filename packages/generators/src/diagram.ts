@@ -64,15 +64,17 @@ function generateFlowchart(manifest: Manifest): string {
 
     let stepCounter = 0;
     
-    function processSteps(steps: import("@axl/compiler").ManifestStep[]): { head: string, tails: string[] } | null {
+    function processSteps(steps: import("@axl/compiler").ManifestStep[], lastSeen: Record<string, string>): { head: string, tails: string[] } | null {
       if (steps.length === 0) return null;
       
       let currentHead: string | null = null;
       let previousTails: string[] = [];
 
       for (const step of steps) {
-        if (typeof step === "string") {
-          const stepName = step;
+        const isActionStep = typeof step === "string" || (typeof step === "object" && 'action' in step);
+        if (isActionStep) {
+          const stepName = typeof step === "string" ? step : step.action;
+          const bindings = typeof step === "object" && 'bindings' in step ? step.bindings : [];
           const id = nodeId("step", `${workflow.name}_${stepName}_${stepCounter++}`);
           const action = manifest.actions[stepName];
           lines.push(`    ${actionNode(id, stepName, action)}`);
@@ -82,8 +84,20 @@ function generateFlowchart(manifest: Manifest): string {
           for (const pt of previousTails) {
             lines.push(`    ${pt} --> ${id}`);
           }
+          
+          // Data dependency edges
+          if (bindings && bindings.length > 0) {
+            for (const b of bindings) {
+              const sourceId = lastSeen[b.sourceStep];
+              if (sourceId) {
+                lines.push(`    ${sourceId} -. "${b.targetField} = ${b.sourceField}" .-> ${id}`);
+              }
+            }
+          }
+          
+          lastSeen[stepName] = id;
           previousTails = [id];
-        } else {
+        } else if (typeof step === "object" && 'if' in step) {
           // Branch step
           const id = nodeId("if", `${workflow.name}_if_${stepCounter++}`);
           lines.push(`    ${id}{{"${step.if}"}}`);
@@ -94,8 +108,9 @@ function generateFlowchart(manifest: Manifest): string {
             lines.push(`    ${pt} --> ${id}`);
           }
           
-          const trueBlock = processSteps(step.then);
-          const falseBlock = step.else ? processSteps(step.else) : null;
+          // Branches get a copy of lastSeen so they don't pollute each other
+          const trueBlock = processSteps(step.then, { ...lastSeen });
+          const falseBlock = step.else ? processSteps(step.else, { ...lastSeen }) : null;
           
           if (trueBlock) {
              lines.push(`    ${id} -- true --> ${trueBlock.head}`);
@@ -110,13 +125,16 @@ function generateFlowchart(manifest: Manifest): string {
           
           if (falseBlock) previousTails.push(...falseBlock.tails);
           else if (!step.else) previousTails.push(id);
+          
+          // After branch, if we merge, what is lastSeen? 
+          // For simplicity, we just keep the outer lastSeen, which doesn't see inside branches.
         }
       }
       
       return { head: currentHead!, tails: previousTails };
     }
 
-    processSteps(workflow.steps);
+    processSteps(workflow.steps, {});
 
     lines.push("  end");
   }

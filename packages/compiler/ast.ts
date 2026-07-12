@@ -96,9 +96,16 @@ export interface ActionNode extends BaseNode {
 // workflows.flow
 // ---------------------------------------------------------------------------
 
+export interface StepBinding {
+  readonly targetField: string;
+  readonly sourceStep: string;
+  readonly sourceField: string;
+}
+
 export interface ActionStepNode extends BaseNode {
   readonly kind: "Step";
   readonly actionRef: string;
+  readonly bindings?: readonly StepBinding[];
 }
 
 export interface BranchStepNode extends BaseNode {

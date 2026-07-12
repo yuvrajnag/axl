@@ -520,7 +520,44 @@ export class Parser {
         const stepLoc = this.peek().location;
         this.advance();
         const actionRef = this.expectIdentifier("action reference");
-        steps.push({ kind: "Step", location: stepLoc, actionRef });
+        
+        let bindings: import("./ast.js").StepBinding[] | undefined;
+        if (!this.isAtEnd() && this.peekKeyword("USING")) {
+          this.advance(); // consume USING
+          bindings = [];
+          
+          while (!this.isAtEnd() && this.peek().type !== TokenType.Newline && this.peek().type !== TokenType.EOF) {
+            const targetField = this.expectIdentifier("target field");
+            
+            if (this.peek().type === TokenType.Equals) {
+              this.advance();
+            } else {
+              this.addDiagnostic(this.peek().location, "AXL233", "Expected '=' after target field in binding");
+              break;
+            }
+            
+            const sourceStep = this.expectIdentifier("source step");
+            
+            let sourceField = "";
+            if (!this.isAtEnd() && this.peek().type === TokenType.Dot) {
+              this.advance(); // consume .
+              sourceField = this.expectIdentifier("source field");
+            } else {
+              this.addDiagnostic(this.peek().location, "AXL234", "Expected '.' after source step in binding");
+            }
+            
+            bindings.push({ targetField, sourceStep, sourceField });
+            
+            if (!this.isAtEnd() && this.peek().type === TokenType.Comma) {
+              this.advance(); // consume comma
+              continue;
+            } else {
+              break; // no comma means end of bindings list
+            }
+          }
+        }
+        
+        steps.push({ kind: "Step", location: stepLoc, actionRef, bindings });
       } else if (this.peekKeyword("IF")) {
         const stepLoc = this.peek().location;
         this.advance();

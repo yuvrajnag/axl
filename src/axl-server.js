@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { loadManifest } from "./manifest.js";
 import { AxlEngine, PermissionError, BackendError } from "./engine.js";
+import { buildZodShape } from "./schema-utils.js";
 
 export function buildAxlServer(manifestPath, { sessionCookie, contextExtractor, engine } = {}) {
   const manifest = loadManifest(manifestPath);
@@ -15,25 +16,7 @@ export function buildAxlServer(manifestPath, { sessionCookie, contextExtractor, 
   return { server, engine: actualEngine, manifest };
 }
 
-/**
- * Converts a .flow input spec like:
- *   { title: { type: string, required: true }, due_date: { type: string, required: false } }
- * into a Zod raw shape for the MCP SDK.
- */
-function buildZodShape(inputSpec) {
-  const shape = {};
-  for (const [key, def] of Object.entries(inputSpec || {})) {
-    let field;
-    switch (def.type) {
-      case "number": field = z.number(); break;
-      case "boolean": field = z.boolean(); break;
-      default: field = z.string();
-    }
-    if (!def.required) field = field.optional();
-    shape[key] = field;
-  }
-  return shape;
-}
+
 
 function textResult(obj) {
   return { content: [{ type: "text", text: JSON.stringify(obj, null, 2) }] };

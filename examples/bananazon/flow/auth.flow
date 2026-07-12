@@ -1,6 +1,6 @@
 -- auth.flow
 
-PERMISSION search_products : PUBLIC
+PERMISSION search_product : PUBLIC
 PERMISSION add_to_cart : AUTH
 PERMISSION checkout : AUTH
 
