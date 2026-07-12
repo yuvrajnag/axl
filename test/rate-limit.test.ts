@@ -4,9 +4,15 @@ import { fileURLToPath } from "url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
+import { test, expect, beforeAll } from "vitest";
+import { execSync } from "node:child_process";
+
 const APP_FLOW_DIR = fileURLToPath(new URL("../build", import.meta.url));
 
-import { test, expect } from "vitest";
+beforeAll(() => {
+  // Ensure the manifest is compiled before running tests
+  execSync("npx tsx packages/cli/index.ts compile", { stdio: "ignore" });
+});
 
 test("rate limit isolation", async () => {
   const PORT = 3942;

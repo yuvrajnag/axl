@@ -6,7 +6,13 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 
 const APP_FLOW_DIR = fileURLToPath(new URL("../build", import.meta.url));
 
-import { test, expect } from "vitest";
+import { test, expect, beforeAll } from "vitest";
+import { execSync } from "node:child_process";
+
+beforeAll(() => {
+  // Ensure the manifest is compiled before running tests
+  execSync("npx tsx packages/cli/index.ts compile", { stdio: "ignore" });
+});
 
 test("session expiry", async () => {
   const PORT = 3943;
