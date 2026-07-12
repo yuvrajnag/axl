@@ -6,10 +6,12 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 
 const APP_FLOW_DIR = fileURLToPath(new URL("../build", import.meta.url));
 
-async function runTest() {
+import { test, expect } from "vitest";
+
+test("rate limit isolation", async () => {
   const PORT = 3942;
   // Trust proxy so we can mock x-forwarded-for
-  serve(APP_FLOW_DIR, { port: PORT, trustProxy: true });
+  const srv = serve(APP_FLOW_DIR, { port: PORT, trustProxy: true });
   
   await new Promise(resolve => setTimeout(resolve, 500));
   
@@ -27,8 +29,6 @@ async function runTest() {
   await c1.connect(t1);
   await c2.connect(t2);
 
-  console.log("Clients connected.");
-
   // Flood c1 to hit rate limit (10 req/min)
   let c1Fails = 0;
   for (let i = 0; i < 20; i++) {
@@ -36,32 +36,14 @@ async function runTest() {
     const text = (res.content as any)[0].text;
     if (res.isError && text.includes("Rate limit exceeded")) {
       c1Fails++;
-      console.log(`c1 hit limit on request ${i}`);
       break;
     }
   }
 
   // Now verify c2 can still make a request without being rate-limited!
-  let c2Success = false;
   const res2 = await c2.callTool({ name: "list_tasks", arguments: { project_id: "p1" } });
   const text2 = (res2.content as any)[0].text;
-  if (!res2.isError || !text2.includes("Rate limit exceeded")) {
-    c2Success = true;
-    console.log("c2 succeeded! (Isolation working)");
-  } else {
-    console.error("c2 failed with rate limit! Isolation NOT working.", res2);
-  }
-
-  if (c1Fails > 0 && c2Success) {
-    console.log("✅ Rate limit isolated by IP successfully!");
-    process.exit(0);
-  } else {
-    console.log("❌ Test failed.");
-    process.exit(1);
-  }
-}
-
-runTest().catch((err) => {
-  console.error("❌ TEST FAILED:", err);
-  process.exit(1);
+  
+  expect(c1Fails).toBeGreaterThan(0);
+  expect(res2.isError && text2.includes("Rate limit exceeded")).toBe(false);
 });

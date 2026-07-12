@@ -6,7 +6,9 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 
 const APP_FLOW_DIR = fileURLToPath(new URL("../build", import.meta.url));
 
-async function runTest() {
+import { test, expect } from "vitest";
+
+test("session expiry", async () => {
   const PORT = 3943;
   // Make session timeout super short (2 seconds) for testing
   serve(APP_FLOW_DIR, { port: PORT, sessionTimeoutMs: 2000 });
@@ -17,27 +19,19 @@ async function runTest() {
   const client = new Client({ name: "t1", version: "1" }, { capabilities: {} });
   
   await client.connect(transport);
-  console.log("Client connected.");
 
   // Make a request immediately
   await client.callTool({ name: "list_projects", arguments: {} });
-  console.log("Initial request succeeded.");
 
-  console.log("Waiting 3 seconds for session sweep...");
   await new Promise(resolve => setTimeout(resolve, 3000));
 
   // Should fail because the server closed it!
+  let failed = false;
   try {
     await client.callTool({ name: "list_projects", arguments: {} });
-    console.log("❌ Test failed: Request succeeded after session should have expired!");
-    process.exit(1);
   } catch (err: any) {
-    console.log("✅ Request failed after expiry (Session swept successfully)");
-    process.exit(0);
+    failed = true;
   }
-}
-
-runTest().catch((err) => {
-  console.error("❌ TEST FAILED:", err);
-  process.exit(1);
+  
+  expect(failed).toBe(true);
 });
