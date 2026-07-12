@@ -123,6 +123,9 @@ WORKFLOW TaskLifecycle
 1. \`axl compile\`: Compiles \`flow/\` into \`build/manifest.json\`. Run this often to get compiler errors immediately!
 2. \`axl generate\`: Runs generators (like DIAGRAM) based on the manifest.
 3. \`axl doctor\`: Diagnostic checks for the environment and project.
+
+## Copilot Trigger Phrase
+If the user prompts you with \`/axl\` or \`start the axl\`, assume they want you to act as their AXL co-pilot. Respond with an enthusiastic greeting, briefly list the domains you can help them build (entities in schema.flow, actions in actions.flow, and orchestrating workflows.flow), and ask what they want to build first.
 `;
 
 const GITIGNORE_ADDITIONS = `
