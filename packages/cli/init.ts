@@ -124,8 +124,8 @@ WORKFLOW TaskLifecycle
 2. \`axl generate\`: Runs generators (like DIAGRAM) based on the manifest.
 3. \`axl doctor\`: Diagnostic checks for the environment and project.
 
-## Copilot Trigger Phrase
-If the user prompts you with \`/axl\` or \`start the axl\`, assume they want you to act as their AXL co-pilot. Respond with an enthusiastic greeting, briefly list the domains you can help them build (entities in schema.flow, actions in actions.flow, and orchestrating workflows.flow), and ask what they want to build first.
+## AI Assistant Trigger Phrase
+If the user prompts you with \`/axl\` or \`start the axl\`, assume they want you to act as their AXL expert pairing assistant. Respond with an enthusiastic greeting, briefly list the domains you can help them build (entities in schema.flow, actions in actions.flow, and orchestrating workflows.flow), and ask what they want to build first.
 `;
 
 const GITIGNORE_ADDITIONS = `
