@@ -30,7 +30,7 @@ export async function compile(flowDir: string, outDir: string): Promise<void> {
         location: firstError.location ? `${firstError.location.file}:${firstError.location.line || 1}:${firstError.location.column || 1}` : undefined,
         help: "Fix the errors above and run again."
       });
-      throw new Error("Compilation failed");
+      process.exit(1);
     } else {
       blank();
       console.log(`  ${c.warning(icons.warning)} ${c.warning("warning")} · Compiled with ${warnings.length} warning(s)`);

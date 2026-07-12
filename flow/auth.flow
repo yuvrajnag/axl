@@ -8,3 +8,4 @@ PERMISSION update_task_status : AUTH
 PERMISSION delete_task : AUTH
 
 CONFIRM delete_task : OTP
+RATE_LIMIT list_tasks : 10/min

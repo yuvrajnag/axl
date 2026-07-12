@@ -49,6 +49,7 @@ describe("AXL CLI", () => {
       expect(fs.existsSync(path.join(initDir, "flow/auth.flow"))).toBe(true);
       expect(fs.existsSync(path.join(initDir, "axl.config.json"))).toBe(true);
       expect(fs.existsSync(path.join(initDir, ".gitignore"))).toBe(true);
+      expect(fs.existsSync(path.join(initDir, "AGENT.md"))).toBe(true);
       
       // VS Code settings should be created
       expect(fs.existsSync(path.join(initDir, ".vscode/settings.json"))).toBe(true);

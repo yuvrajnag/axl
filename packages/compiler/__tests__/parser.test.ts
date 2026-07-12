@@ -125,4 +125,51 @@ END
       }
     }
   });
+
+  describe("Keyword case sensitivity", () => {
+    it("rejects lowercase 'app'", () => {
+      const source = `app MyApp\nNAME "My Application"\nVERSION 1.0.0`;
+      const parser = new Parser(source, "app.flow");
+      const result = parser.detectAndParse();
+      expect(result.type).toBe("empty");
+      expect(result.diagnostics).toHaveLength(1);
+      expect(result.diagnostics[0]?.message).toMatch(/Expected keyword 'APP', found 'app' — AXL keywords are case-sensitive and must be uppercase/);
+    });
+
+    it("rejects lowercase 'entity'", () => {
+      const source = `entity User\n  id : String`;
+      const parser = new Parser(source, "schema.flow");
+      const result = parser.detectAndParse();
+      expect(result.type).toBe("empty");
+      expect(result.diagnostics).toHaveLength(1);
+      expect(result.diagnostics[0]?.message).toMatch(/Expected keyword 'ENTITY', found 'entity'/);
+    });
+
+    it("rejects lowercase 'action'", () => {
+      const source = `action get_user\n  OUTPUT User\n  ENDPOINT GET /users`;
+      const parser = new Parser(source, "actions.flow");
+      const result = parser.detectAndParse();
+      expect(result.type).toBe("empty");
+      expect(result.diagnostics).toHaveLength(1);
+      expect(result.diagnostics[0]?.message).toMatch(/Expected keyword 'ACTION', found 'action'/);
+    });
+
+    it("rejects lowercase 'workflow'", () => {
+      const source = `workflow Checkout\n  STEP validate_cart\nEND`;
+      const parser = new Parser(source, "workflows.flow");
+      const result = parser.detectAndParse();
+      expect(result.type).toBe("empty");
+      expect(result.diagnostics).toHaveLength(1);
+      expect(result.diagnostics[0]?.message).toMatch(/Expected keyword 'WORKFLOW', found 'workflow'/);
+    });
+
+    it("rejects lowercase 'permission'", () => {
+      const source = `permission list_users : PUBLIC`;
+      const parser = new Parser(source, "auth.flow");
+      const result = parser.detectAndParse();
+      expect(result.type).toBe("empty");
+      expect(result.diagnostics).toHaveLength(1);
+      expect(result.diagnostics[0]?.message).toMatch(/Expected keyword 'PERMISSION', found 'permission'/);
+    });
+  });
 });

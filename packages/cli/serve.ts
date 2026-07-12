@@ -9,9 +9,9 @@ import { buildAxlServer } from "../../src/axl-server.js";
 import { c, icons, errorBlock, section, blank } from "./ui.js";
 
 // Storage for per-request context (like session cookie)
-export const requestContext = new AsyncLocalStorage<{ sessionCookie?: string, idempotencyKey?: string }>();
+export const requestContext = new AsyncLocalStorage<{ sessionCookie?: string, idempotencyKey?: string, ip?: string }>();
 
-export async function serve(outDir: string, options: { port?: number }) {
+export async function serve(outDir: string, options: { port?: number, sessionTimeoutMs?: number, trustProxy?: boolean }) {
   const manifestPath = path.join(outDir, "manifest.json");
   if (!fs.existsSync(manifestPath)) {
     blank();
@@ -65,7 +65,7 @@ export async function serve(outDir: string, options: { port?: number }) {
     });
   });
 
-  const sessions = new Map<string, StreamableHTTPServerTransport>();
+  const sessions = new Map<string, { transport: StreamableHTTPServerTransport, lastActivity: number }>();
 
   // Handle all MCP traffic through the Streamable HTTP transport
   app.all("/mcp", async (req, res, next) => {
@@ -73,16 +73,17 @@ export async function serve(outDir: string, options: { port?: number }) {
     let transport: StreamableHTTPServerTransport;
 
     if (sessionId) {
-      const existingTransport = sessions.get(sessionId);
-      if (!existingTransport) {
+      const sessionData = sessions.get(sessionId);
+      if (!sessionData) {
         return res.status(404).json({ error: "Session not found" });
       }
-      transport = existingTransport;
+      sessionData.lastActivity = Date.now();
+      transport = sessionData.transport;
     } else {
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (sid) => {
-          sessions.set(sid, transport);
+          sessions.set(sid, { transport, lastActivity: Date.now() });
         },
         onsessionclosed: (sid) => {
           sessions.delete(sid);
@@ -95,6 +96,7 @@ export async function serve(outDir: string, options: { port?: number }) {
           return {
             sessionCookie: store?.sessionCookie,
             idempotencyKey: store?.idempotencyKey,
+            ip: store?.ip
           };
         }
       });
@@ -112,8 +114,18 @@ export async function serve(outDir: string, options: { port?: number }) {
 
     const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
 
+    let ip = req.socket.remoteAddress;
+    if (options.trustProxy && req.headers["x-forwarded-for"]) {
+      const forwardedFor = Array.isArray(req.headers["x-forwarded-for"])
+        ? req.headers["x-forwarded-for"][0]
+        : req.headers["x-forwarded-for"];
+      if (forwardedFor) {
+        ip = forwardedFor.split(',')[0]?.trim() || ip;
+      }
+    }
+
     // Run the request in the context of the extracted session
-    requestContext.run({ sessionCookie, idempotencyKey }, () => {
+    requestContext.run({ sessionCookie, idempotencyKey, ip }, () => {
       transport.handleRequest(req, res).catch((err) => {
         console.error("handleRequest error:", err);
         next(err);
@@ -139,7 +151,20 @@ export async function serve(outDir: string, options: { port?: number }) {
     blank();
   });
 
+  const sessionTimeout = options.sessionTimeoutMs || 30 * 60 * 1000;
+  const sweepIntervalMs = Math.min(60000, Math.max(1000, sessionTimeout / 2));
+  const sweepInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [sid, sessionData] of sessions.entries()) {
+      if (now - sessionData.lastActivity > sessionTimeout) {
+        sessionData.transport.close();
+        sessions.delete(sid);
+      }
+    }
+  }, sweepIntervalMs);
+
   const shutdown = () => {
+    clearInterval(sweepInterval);
     console.log(`\n  ${c.warning(icons.warning)} ${c.plain("Shutting down AXL server...")}`);
     httpServer.close(() => {
       if (engine && typeof engine.destroy === 'function') {

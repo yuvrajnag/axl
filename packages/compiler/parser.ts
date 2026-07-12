@@ -113,6 +113,18 @@ export class Parser {
       }
     }
 
+    if (first.type === TokenType.Identifier) {
+      const upper = first.value.toUpperCase();
+      if (["APP", "ENTITY", "ACTION", "WORKFLOW", "PERMISSION", "CONFIRM", "RATE_LIMIT"].includes(upper)) {
+        this.addDiagnostic(
+          first.location,
+          "AXL201",
+          `Expected keyword '${upper}', found '${first.value}' — AXL keywords are case-sensitive and must be uppercase`,
+        );
+        return { type: "empty", diagnostics: this.diagnostics };
+      }
+    }
+
     this.addDiagnostic(
       first.location,
       "AXL201",

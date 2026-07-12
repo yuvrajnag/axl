@@ -5,9 +5,25 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { GeneratorRegistry } from "@axl/generators";
 import { c, icons, section, blank, table, divider, warn, success } from "./ui.js";
 import { findProjectRoot, loadConfig, resolvePaths } from "./config.js";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getCliVersion(): string {
+  try {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const pkgPath = path.resolve(__dirname, "../package.json");
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    return pkg.version;
+  } catch {
+    return "unknown";
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,7 +57,8 @@ export async function doctor(flowDir: string): Promise<void> {
   const checks: Check[] = [];
 
   // ── CLI version ──
-  checks.push({ label: "CLI", status: "pass", detail: "v0.2.3" }); // Bumped to match package.json
+  const cliVersion = getCliVersion();
+  checks.push({ label: "CLI", status: "pass", detail: `v${cliVersion}` });
 
   // ── Compiler ──
   try {

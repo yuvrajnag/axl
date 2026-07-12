@@ -93,6 +93,38 @@ PERMISSION list_users : PUBLIC
 PERMISSION create_user : AUTH
 `;
 
+const AGENT_TEMPLATE = `# AXL Agent Guide
+AXL is an AI-native application specification language that compiles to an MCP (Model Context Protocol) server. AXL allows you to define workflows, entities, actions, and permissions declaratively.
+
+## Project Structure
+- \`app.flow\`: Top-level app definition (name, version, baseUrl, generators).
+- \`schema.flow\`: Entity and relationship definitions.
+- \`actions.flow\`: Action signatures and REST endpoint mappings.
+- \`workflows.flow\`: Orchestrated sequences of actions with data binding.
+- \`auth.flow\`: Security rules and confirm gates (OTP) for actions.
+
+## CRITICAL: Case-Sensitivity
+AXL keywords are strictly case-sensitive and **must be UPPERCASE**.
+Keywords: \`APP\`, \`ENTITY\`, \`ACTION\`, \`WORKFLOW\`, \`STEP\`, \`INPUT\`, \`OUTPUT\`, \`ENDPOINT\`, \`PERMISSION\`, \`CONFIRM\`, \`RATE_LIMIT\`, \`USING\`, \`IF\`, \`ELSE\`, \`END\`.
+If you use lowercase (e.g. \`app\`, \`entity\`), you will get compilation errors.
+
+## Data Binding
+Workflow steps MUST explicitly declare data dependencies using the \`USING\` clause. Missing required inputs will cause a compile error.
+Syntax: \`STEP <target_action> USING <target_input_field> = <source_step_name>.<source_output_field>\`
+
+Example:
+\`\`\`flow
+WORKFLOW TaskLifecycle
+  STEP create_task
+  STEP update_task_status USING task_id = create_task.id
+\`\`\`
+
+## Commands
+1. \`axl compile\`: Compiles \`flow/\` into \`build/manifest.json\`. Run this often to get compiler errors immediately!
+2. \`axl generate\`: Runs generators (like DIAGRAM) based on the manifest.
+3. \`axl doctor\`: Diagnostic checks for the environment and project.
+`;
+
 const GITIGNORE_ADDITIONS = `
 # AXL
 build/
@@ -253,6 +285,10 @@ export async function init(targetDir: string, skipPrompts = false): Promise<void
       generatedDir: "./generated",
     };
     writeConfig(root, config);
+
+    const agentPath = path.join(root, "AGENT.md");
+    writeIfNew(agentPath, AGENT_TEMPLATE);
+
     steps.update(idx++, "done");
 
     // Preparing workspace

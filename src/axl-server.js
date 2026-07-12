@@ -18,8 +18,8 @@ export function buildAxlServer(manifestPath, { sessionCookie, contextExtractor, 
 
 
 
-function textResult(obj) {
-  return { content: [{ type: "text", text: JSON.stringify(obj, null, 2) }] };
+function textResult(obj, isError = false) {
+  return { content: [{ type: "text", text: typeof obj === "string" ? obj : JSON.stringify(obj, null, 2) }], isError };
 }
 
 function registerTools(server, manifest, engine, sessionCookie, contextExtractor) {
@@ -44,12 +44,12 @@ function registerTools(server, manifest, engine, sessionCookie, contextExtractor
           return textResult(result);
         } catch (err) {
           if (err instanceof PermissionError) {
-            return textResult({ error: "PERMISSION_DENIED", message: err.message });
+            return textResult({ error: "PERMISSION_DENIED", message: err.message }, true);
           }
           if (err instanceof BackendError) {
-            return textResult({ error: "BACKEND_ERROR", status: err.status, body: err.body });
+            return textResult({ error: "BACKEND_ERROR", status: err.status, body: err.body }, true);
           }
-          return textResult({ error: "EXECUTION_ERROR", message: err.message });
+          return textResult({ error: "WORKFLOW_ERROR", message: err.message }, true);
         }
       }
     );
@@ -99,12 +99,12 @@ function registerTools(server, manifest, engine, sessionCookie, contextExtractor
           return textResult(result);
         } catch (err) {
           if (err instanceof PermissionError) {
-            return textResult({ error: "PERMISSION_DENIED", message: err.message });
+            return textResult({ error: "PERMISSION_DENIED", message: err.message }, true);
           }
           if (err instanceof BackendError) {
-            return textResult({ error: "BACKEND_ERROR", status: err.status, body: err.body });
+            return textResult({ error: "BACKEND_ERROR", status: err.status, body: err.body }, true);
           }
-          return textResult({ error: "WORKFLOW_ERROR", message: err.message });
+          return textResult({ error: "WORKFLOW_ERROR", message: err.message }, true);
         }
       }
     );
@@ -124,7 +124,7 @@ function registerTools(server, manifest, engine, sessionCookie, contextExtractor
           const result = await engine.resumeWorkflow(token, otp);
           return textResult(result);
         } catch (err) {
-          return textResult({ error: "RESUME_FAILED", message: err.message });
+          return textResult({ error: "RESUME_FAILED", message: err.message }, true);
         }
       }
     );
