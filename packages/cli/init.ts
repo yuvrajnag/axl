@@ -125,16 +125,16 @@ WORKFLOW TaskLifecycle
 3. \`axl doctor\`: Diagnostic checks for the environment and project.
 
 ## Autonomous Mode
-If the user says \`/axl\`, "start axl", or gives a brief app idea with no further detail, treat this as a request to scaffold and build a working AXL backend end-to-end with minimal back-and-forth. Do not ask clarifying questions unless the request is genuinely ambiguous about which domain to build.
+If the user says \`/axl\`, "start axl", or gives a brief app idea with no further detail, treat this as a request to build a working AXL backend end-to-end with minimal back-and-forth. Do not ask clarifying questions unless the request is genuinely ambiguous.
 
-1. If no app idea was given, pick a reasonable one yourself (e.g. a blog, a task tracker, a booking system) and proceed.
-2. Run \`axl init\` if the project isn't already scaffolded. This creates PLACEHOLDER content (a generic \`ENTITY User\`, a \`list_users\` action, etc.) in schema.flow/actions.flow/workflows.flow/auth.flow -- this placeholder content is NOT your output. You must fully REPLACE it with real entities, actions, and workflows for the actual requested domain. Leaving any of the default placeholder content in place is a failure, even if it compiles.
-3. Write real schema.flow, actions.flow, workflows.flow, and auth.flow content for the domain, following the syntax rules above exactly (uppercase keywords, explicit USING bindings on every workflow step).
-4. Run \`axl compile\`. If it fails, read the error output, fix the .flow files, and recompile -- repeat until it succeeds. IMPORTANT: a successful compile is necessary but NOT sufficient -- the default placeholder template also compiles successfully. Before reporting success, re-read your own schema.flow and actions.flow and confirm the entity/action names actually reflect the requested domain (e.g. for a habit tracker, you should see something like ENTITY Habit, not ENTITY User left over from the default template).
-5. Run \`axl generate\`.
-6. Report back what was built, and mention \`axl doctor\` and \`axl serve\` as the natural next commands.
+1. Run \`axl init\` if the project isn't already scaffolded. This creates PLACEHOLDER content (a generic \`ENTITY User\`, a \`list_users\` action, etc.) -- this is NOT your output and must be fully replaced.
+2. Before writing anything, look at the existing project you're inside of: package.json, existing routes/controllers/models, README, any existing API code. If real project structure exists, base your schema/actions/workflows/auth on what's ACTUALLY there -- real entity names, real endpoints, real fields -- not invented ones. Only invent a plausible domain from scratch if the project is genuinely empty with nothing to infer from.
+3. Write real schema.flow, actions.flow, workflows.flow, and auth.flow reflecting what you found (or invented), following the syntax rules above exactly (uppercase keywords, explicit USING bindings on every workflow step).
+4. Run \`axl compile\`. If it fails, read the error output, fix the .flow files, and recompile -- repeat until it succeeds. A successful compile is NOT sufficient on its own -- the default placeholder template also compiles. Before proceeding, re-read your own schema.flow/actions.flow and confirm the names actually reflect the real project (or your invented domain), not leftover defaults.
+5. Run \`axl generate\`. This produces MCP tool definitions, an OpenAPI spec, and Mermaid diagrams (DIAGRAM is enabled by default) in one step.
+6. Do NOT attempt to run \`axl serve\` yourself -- it is a long-running process that never exits and will hang your own execution. Instead, report what was built and tell the user to run \`axl serve\` when they're ready to start the server.
 
-If your environment has no terminal access, write the files and tell the user the exact commands to run themselves.
+If your environment has no terminal access, write the files and tell the user the exact commands to run themselves, in order: axl compile, axl generate, axl serve.
 `;
 
 const GITIGNORE_ADDITIONS = `
