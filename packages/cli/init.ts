@@ -125,7 +125,7 @@ WORKFLOW TaskLifecycle
 3. \`axl doctor\`: Diagnostic checks for the environment and project.
 
 ## AI Assistant Trigger Phrase
-If the user prompts you with \`/axl\` or \`start the axl\`, assume they want you to act as their AXL expert pairing assistant. Respond with an enthusiastic greeting, briefly list the domains you can help them build (entities in schema.flow, actions in actions.flow, and orchestrating workflows.flow), and ask what they want to build first.
+If the user's prompt includes \`/axl\` or \`start axl\` (e.g., "\`/axl build a todo app\`"), you must IMMEDIATELY act as an expert AXL developer. Do NOT ask for permission or explain what you are going to do. Just instantly write the complete code for their request across the appropriate \`.flow\` files using the syntax rules above. If they just say \`/axl\` without a topic, ask them exactly what app they want you to build.
 `;
 
 const GITIGNORE_ADDITIONS = `
