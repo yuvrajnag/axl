@@ -27,7 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!wordRange) return null;
 
       const word = document.getText(wordRange);
-      const ast = parseWorkspaceFlowFiles(document.uri);
+      const ast = parseWorkspaceFlowFiles(document);
       if (!ast) return null;
 
       const info = getHoverInfo(word, ast);
@@ -41,8 +41,9 @@ export function activate(context: vscode.ExtensionContext) {
   // -- Diagnostics ----------------------------------------------------------
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
-  function runDiagnostics(docUri?: vscode.Uri) {
-    const sources = readWorkspaceFlowSources(docUri);
+  function runDiagnostics(doc?: vscode.TextDocument) {
+    const docUri = doc?.uri;
+    const sources = readWorkspaceFlowSources(doc);
     if (!sources) {
       if (!docUri) diagnosticCollection.clear();
       return;
@@ -57,7 +58,8 @@ export function activate(context: vscode.ExtensionContext) {
       const fileName = d.location.file;
       const line = Math.max(0, d.location.line - 1); // VS Code is 0-indexed
       const col = Math.max(0, d.location.column - 1);
-      const range = new vscode.Range(line, col, line, col + 20);
+      const length = d.location.length ?? 1;
+      const range = new vscode.Range(line, col, line, col + length);
       const severity =
         d.severity === DiagnosticSeverity.Error
           ? vscode.DiagnosticSeverity.Error
@@ -88,20 +90,20 @@ export function activate(context: vscode.ExtensionContext) {
     }
   }
 
-  function scheduleDiagnostics(docUri: vscode.Uri) {
+  function scheduleDiagnostics(doc: vscode.TextDocument) {
     if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => runDiagnostics(docUri), 500);
+    debounceTimer = setTimeout(() => runDiagnostics(doc), 500);
   }
 
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
-      if (doc.languageId === "flow") runDiagnostics(doc.uri);
+      if (doc.languageId === "flow") runDiagnostics(doc);
     }),
     vscode.workspace.onDidOpenTextDocument((doc) => {
-      if (doc.languageId === "flow") runDiagnostics(doc.uri);
+      if (doc.languageId === "flow") runDiagnostics(doc);
     }),
     vscode.workspace.onDidChangeTextDocument((e) => {
-      if (e.document.languageId === "flow") scheduleDiagnostics(e.document.uri);
+      if (e.document.languageId === "flow") scheduleDiagnostics(e.document);
     }),
   );
 
@@ -115,7 +117,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!wordRange) return null;
 
       const word = document.getText(wordRange);
-      const ast = parseWorkspaceFlowFiles(document.uri);
+      const ast = parseWorkspaceFlowFiles(document);
       if (!ast) return null;
 
       const flowDir = findFlowDir(document.uri);
@@ -189,7 +191,8 @@ function findFlowDir(docUri?: vscode.Uri): string | null {
   return null;
 }
 
-function readWorkspaceFlowSources(docUri?: vscode.Uri): Record<string, string> | null {
+function readWorkspaceFlowSources(doc?: vscode.TextDocument): Record<string, string> | null {
+  const docUri = doc?.uri;
   const flowDir = findFlowDir(docUri);
   if (!flowDir) return null;
 
@@ -197,7 +200,13 @@ function readWorkspaceFlowSources(docUri?: vscode.Uri): Record<string, string> |
   try {
     const files = fs.readdirSync(flowDir).filter((f) => f.endsWith(".flow"));
     for (const file of files) {
-      sources[file] = fs.readFileSync(path.join(flowDir, file), "utf-8");
+      const fullPath = path.join(flowDir, file);
+      // BUG 2 fix: Use the live in-memory buffer if this is the active document
+      if (doc && docUri && docUri.fsPath === fullPath) {
+        sources[file] = doc.getText();
+      } else {
+        sources[file] = fs.readFileSync(fullPath, "utf-8");
+      }
     }
   } catch {
     return null;
@@ -206,8 +215,8 @@ function readWorkspaceFlowSources(docUri?: vscode.Uri): Record<string, string> |
   return Object.keys(sources).length > 0 ? sources : null;
 }
 
-function parseWorkspaceFlowFiles(docUri?: vscode.Uri): ProjectAST | null {
-  const sources = readWorkspaceFlowSources(docUri);
+function parseWorkspaceFlowFiles(doc?: vscode.TextDocument): ProjectAST | null {
+  const sources = readWorkspaceFlowSources(doc);
   if (!sources) return null;
 
   let appNode: AppNode | undefined;

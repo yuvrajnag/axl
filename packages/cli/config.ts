@@ -21,6 +21,8 @@ export interface AxlConfig {
   outDir: string;
   /** Path to the generated output directory relative to project root */
   generatedDir: string;
+  /** Path to the file-backed state store (if opted in) */
+  stateFile?: string;
 }
 
 const DEFAULT_CONFIG: AxlConfig = {
@@ -71,6 +73,7 @@ export function loadConfig(projectRoot: string): AxlConfig {
       flowDir: parsed.flowDir ?? DEFAULT_CONFIG.flowDir,
       outDir: parsed.outDir ?? DEFAULT_CONFIG.outDir,
       generatedDir: parsed.generatedDir ?? DEFAULT_CONFIG.generatedDir,
+      stateFile: parsed.stateFile,
     };
   } catch {
     return { ...DEFAULT_CONFIG };

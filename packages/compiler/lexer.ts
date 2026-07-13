@@ -283,10 +283,10 @@ export class Lexer {
   // -------------------------------------------------------------------------
 
   private loc(): SourceLocation {
-    return { file: this.fileName, line: this.line, column: this.col };
+    return { file: this.fileName, line: this.line, column: this.col, length: 1 };
   }
 
   private makeToken(type: TokenType, value: string, location: SourceLocation): Token {
-    return { type, value, location };
+    return { type, value, location: { ...location, length: Math.max(1, value.length) } };
   }
 }

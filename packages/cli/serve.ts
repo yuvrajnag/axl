@@ -6,12 +6,14 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { randomUUID } from "crypto";
 // @ts-ignore
 import { buildAxlServer } from "../../src/axl-server.js";
+// @ts-ignore
+import { FileStateStore } from "../../src/state.js";
 import { c, icons, errorBlock, section, blank } from "./ui.js";
 
 // Storage for per-request context (like session cookie)
 export const requestContext = new AsyncLocalStorage<{ sessionCookie?: string, idempotencyKey?: string, ip?: string }>();
 
-export async function serve(outDir: string, options: { port?: number, sessionTimeoutMs?: number, trustProxy?: boolean }) {
+export async function serve(outDir: string, options: { port?: number, sessionTimeoutMs?: number, trustProxy?: boolean, stateFile?: string }) {
   const manifestPath = path.join(outDir, "manifest.json");
   if (!fs.existsSync(manifestPath)) {
     blank();
@@ -23,7 +25,13 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     throw new Error("Manifest not found");
   }
 
-  const { engine, manifest } = buildAxlServer(manifestPath);
+  let stateStore = undefined;
+  if (options.stateFile) {
+    const statePath = path.resolve(options.stateFile);
+    stateStore = new FileStateStore(statePath);
+  }
+
+  const { engine, manifest } = buildAxlServer(manifestPath, { stateStore });
 
   const app = express();
   
@@ -65,6 +73,11 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     });
   });
 
+  // NOTE: This Map tracks active MCP HTTP transport sessions.
+  // It is intentionally NOT backed by the StateStore. An SSE connection (which is what 
+  // StreamableHTTPServerTransport manages) is inherently tied to the active process memory.
+  // If the server restarts, those TCP/HTTP connections are physically dropped. 
+  // Therefore, this session state remains process-local and will not survive a restart.
   const sessions = new Map<string, { transport: StreamableHTTPServerTransport, lastActivity: number }>();
 
   // Handle all MCP traffic through the Streamable HTTP transport

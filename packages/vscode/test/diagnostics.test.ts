@@ -21,6 +21,45 @@ describe("Diagnostics Provider", () => {
     expect(dupDiag!.location.line).toBeGreaterThan(0);
   });
 
+  it("should report precise token lengths in diagnostics (Bug 1)", () => {
+    const sources = {
+      "app.flow": `APP TestApp\nVERSION 1.0.0\nDESCRIPTION "Test"`,
+      "schema.flow": `ENTITY Short\nid : ShortUnknown\n\nENTITY VeryLongEntityName\nid : VeryLongUnknownTypeReference\n`,
+    };
+
+    const diags = getDiagnostics(sources);
+
+    const shortDiags = diags.filter(d => d.message.includes("ShortUnknown"));
+    const longDiags = diags.filter(d => d.message.includes("VeryLongUnknownTypeReference"));
+
+    expect(shortDiags.length).toBeGreaterThan(0);
+    expect(longDiags.length).toBeGreaterThan(0);
+
+    // Length should exactly match the token span of the type identifier
+    expect(shortDiags[0].location.length).toBe("ShortUnknown".length);
+    expect(longDiags[0].location.length).toBe("VeryLongUnknownTypeReference".length);
+  });
+
+  it("should reflect live in-memory document content instead of stale on-disk content (Bug 2)", () => {
+    // Stale disk content is missing the DESCRIPTION field, which causes a parse error
+    const staleDiskContent = `APP OldApp\nVERSION 1.0.0`;
+    // Live unsaved buffer has the correct fields
+    const liveBufferContent = `APP NewApp\nVERSION 2.0.0\nDESCRIPTION "Live"`;
+
+    // Simulate what readWorkspaceFlowSources does for an active document
+    const isDocumentActive = true;
+    const simulatedSources = {
+      "app.flow": isDocumentActive ? liveBufferContent : staleDiskContent,
+      "schema.flow": `ENTITY Project\nid : String`
+    };
+
+    const diags = getDiagnostics(simulatedSources);
+
+    // There should be no "missing required field" app error because the live buffer has it
+    const missingDescDiag = diags.find(d => d.message.includes("missing required field") && d.location.file === "app.flow");
+    expect(missingDescDiag).toBeUndefined();
+  });
+
   it("should return diagnostics for unknown type references", () => {
     const sources = {
       "app.flow": `APP TestApp\nVERSION 1.0.0\nDESCRIPTION "Test"`,

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { z } from "zod";
 import { buildZodShape } from "./schema-utils.js";
+import { InMemoryStateStore } from "./state.js";
 
 /**
  * Fills {path_param} placeholders in an endpoint path using values from args,
@@ -30,39 +31,21 @@ function buildUrl(baseUrl, endpointPath, args) {
  *   4. Execute the real HTTP call against the site's own backend
  */
 export class AxlEngine {
-  constructor(manifest) {
+  constructor(manifest, stateStore) {
     this.manifest = manifest;
-    // pending confirmations: token -> { actionName, args, context, expiresAt }
-    this.pendingConfirmations = new Map();
-    this.idempotencyCache = new Map();
-    // paused workflows: token -> workflow state
-    this.pausedWorkflows = new Map();
-    // Rate limits: key -> { count, windowEnd }
-    this.rateLimits = new Map();
+    this.state = stateStore || new InMemoryStateStore();
 
     // Start cleanup sweep every minute
-    this.cleanupInterval = setInterval(() => this._sweep(), 60000);
+    this.cleanupInterval = setInterval(() => {
+      if (typeof this.state._sweep === 'function') {
+        this.state._sweep();
+      }
+    }, 60000);
     if (this.cleanupInterval.unref) this.cleanupInterval.unref();
   }
 
   destroy() {
     clearInterval(this.cleanupInterval);
-  }
-
-  _sweep() {
-    const now = Date.now();
-    for (const [token, pending] of this.pendingConfirmations.entries()) {
-      if (now > pending.expiresAt) this.pendingConfirmations.delete(token);
-    }
-    for (const [key, entry] of this.idempotencyCache.entries()) {
-      if (now > entry.expiresAt) this.idempotencyCache.delete(key);
-    }
-    for (const [token, state] of this.pausedWorkflows.entries()) {
-      if (now > state.expiresAt) this.pausedWorkflows.delete(token);
-    }
-    for (const [key, limit] of this.rateLimits.entries()) {
-      if (now > limit.windowEnd) this.rateLimits.delete(key);
-    }
   }
 
   getActionDef(actionName) {
@@ -97,7 +80,7 @@ export class AxlEngine {
     throw new Error(`Unknown permission level: ${actionDef.permission}`);
   }
 
-  _checkRateLimit(actionName, context) {
+  async _checkRateLimit(actionName, context) {
     const rlStr = this.manifest.rateLimits?.[actionName];
     if (!rlStr) return;
 
@@ -112,22 +95,25 @@ export class AxlEngine {
     const msPerUnit = { sec: 1000, min: 60000, hr: 3600000, day: 86400000 }[unit];
 
     const now = Date.now();
-    let record = this.rateLimits.get(key);
+    let record = await this.state.get("rateLimits", key);
 
     if (record && now > record.windowEnd) {
-      this.rateLimits.delete(key);
+      await this.state.delete("rateLimits", key);
       record = undefined;
     }
 
     if (!record) {
       record = { count: 0, windowEnd: now + msPerUnit };
-      this.rateLimits.set(key, record);
+      await this.state.set("rateLimits", key, record, msPerUnit);
     }
 
     if (record.count >= limit) {
       throw new Error(`Rate limit exceeded for action "${actionName}".`);
     }
+    
+    // Always re-set since we modified the count
     record.count++;
+    await this.state.set("rateLimits", key, record, Math.max(0, record.windowEnd - now));
   }
 
   /**
@@ -179,24 +165,25 @@ export class AxlEngine {
   async execute(actionName, args, context) {
     const actionDef = this.getActionDef(actionName);
     this.checkPermission(actionDef, context);
-    this._checkRateLimit(actionName, context);
+    await this._checkRateLimit(actionName, context);
 
     let cacheKey;
     if (context && context.idempotencyKey) {
       cacheKey = `${context.sessionCookie || 'anon'}:${actionName}:${context.idempotencyKey}`;
-      const entry = this.idempotencyCache.get(cacheKey);
-      if (entry && Date.now() <= entry.expiresAt) {
-        return entry.result;
+      const cached = await this.state.get("idempotencyCache", cacheKey);
+      if (cached) {
+        return cached;
       }
     }
 
     if (actionDef.confirm === "OTP") {
       const token = crypto.randomUUID();
       const otp = String(crypto.randomInt(100000, 999999));
-      this.pendingConfirmations.set(token, {
+      await this.state.set("pendingConfirmations", token, {
         actionName, args, context, otp,
-        expiresAt: Date.now() + 5 * 60 * 1000, // 5 min
-      });
+        attempts: 0
+      }, 5 * 60 * 1000); // 5 min TTL
+      
       const result = {
         confirmationRequired: true,
         token,
@@ -206,7 +193,7 @@ export class AxlEngine {
       };
       
       if (cacheKey) {
-        this.idempotencyCache.set(cacheKey, { result, expiresAt: Date.now() + 86400000 }); // 24hr TTL
+        await this.state.set("idempotencyCache", cacheKey, result, 86400000); // 24hr TTL
       }
       
       return result;
@@ -214,7 +201,7 @@ export class AxlEngine {
 
     const result = await this._executeHttp(actionName, actionDef, args, context);
     if (cacheKey) {
-      this.idempotencyCache.set(cacheKey, { result, expiresAt: Date.now() + 86400000 }); // 24hr TTL
+      await this.state.set("idempotencyCache", cacheKey, result, 86400000); // 24hr TTL
     }
     return result;
   }
@@ -223,34 +210,28 @@ export class AxlEngine {
    * Second phase of a confirm-gated action.
    */
   async confirmAction(token, submittedOtp) {
-    const pending = this.pendingConfirmations.get(token);
+    const pending = await this.state.get("pendingConfirmations", token);
     if (!pending) {
       throw new Error("Invalid or expired confirmation token.");
     }
-    if (Date.now() > pending.expiresAt) {
-      this.pendingConfirmations.delete(token);
-      throw new Error("Confirmation token expired.");
-    }
     if (submittedOtp !== pending.otp) {
-      // Do NOT delete the pending confirmation on a wrong guess -- that
-      // would let one typo permanently cancel a legitimate action. Instead
-      // cap retries, so brute-forcing the 6-digit OTP is still bounded.
       pending.attempts = (pending.attempts || 0) + 1;
       if (pending.attempts >= 5) {
-        this.pendingConfirmations.delete(token);
+        await this.state.delete("pendingConfirmations", token);
         throw new Error("Too many incorrect attempts. Action cancelled -- please retry from the start.");
       }
+      await this.state.set("pendingConfirmations", token, pending, 5 * 60 * 1000);
       throw new Error(`Incorrect OTP. ${5 - pending.attempts} attempt(s) remaining.`);
     }
 
-    this.pendingConfirmations.delete(token);
+    await this.state.delete("pendingConfirmations", token);
     const actionDef = this.getActionDef(pending.actionName);
     const result = await this._executeHttp(pending.actionName, actionDef, pending.args, pending.context);
     
     // Update cache with the final executed result
     if (pending.context && pending.context.idempotencyKey) {
       const cacheKey = `${pending.context.sessionCookie || 'anon'}:${pending.actionName}:${pending.context.idempotencyKey}`;
-      this.idempotencyCache.set(cacheKey, { result, expiresAt: Date.now() + 86400000 });
+      await this.state.set("idempotencyCache", cacheKey, result, 86400000);
     }
     
     return result;
@@ -349,8 +330,7 @@ export class AxlEngine {
         const result = await this.execute(actionName, actionArgs, state.context);
         
         if (result && result.confirmationRequired) {
-          state.expiresAt = Date.now() + 86400000; // 24hr TTL for paused workflows
-          this.pausedWorkflows.set(result.token, state);
+          await this.state.set("pausedWorkflows", result.token, state, 86400000); // 24hr TTL for paused workflows
           return {
             ...result,
             message: `Workflow "${state.workflowName}" paused at step "${actionName}" for confirmation. Call resume_workflow with this token and the OTP.`
@@ -359,9 +339,6 @@ export class AxlEngine {
         
         if (result && typeof result === "object") {
           state.stepOutputs[actionName] = result;
-          // Keep args around for backward compatibility, but we don't flat merge.
-          // Wait, actually some things might rely on flat merge if they haven't been updated? 
-          // The goal of Task 1 is specifically to STOP spreading args.
         }
         
         state.remainingSteps.shift();
@@ -379,7 +356,7 @@ export class AxlEngine {
    * Resumes a paused workflow.
    */
   async resumeWorkflow(token, submittedOtp) {
-    const state = this.pausedWorkflows.get(token);
+    const state = await this.state.get("pausedWorkflows", token);
     if (!state) {
       throw new Error("Invalid or expired workflow run token.");
     }
@@ -388,7 +365,7 @@ export class AxlEngine {
     // Also it handles the actual execution of the paused action.
     const result = await this.confirmAction(token, submittedOtp);
     
-    this.pausedWorkflows.delete(token);
+    await this.state.delete("pausedWorkflows", token);
     
     if (result && typeof result === "object") {
       const step = state.remainingSteps[0];

@@ -5,9 +5,9 @@ import { loadManifest } from "./manifest.js";
 import { AxlEngine, PermissionError, BackendError } from "./engine.js";
 import { buildZodShape } from "./schema-utils.js";
 
-export function buildAxlServer(manifestPath, { sessionCookie, contextExtractor, engine } = {}) {
+export function buildAxlServer(manifestPath, { sessionCookie, contextExtractor, engine, stateStore } = {}) {
   const manifest = loadManifest(manifestPath);
-  const actualEngine = engine || new AxlEngine(manifest);
+  const actualEngine = engine || new AxlEngine(manifest, stateStore);
   const server = new McpServer({
     name: `axl-${manifest.app.name.toLowerCase().replace(/\s+/g, "-")}`,
     version: manifest.axl_version || manifest.app.version || "1.0",

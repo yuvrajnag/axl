@@ -17,6 +17,8 @@ export interface SourceLocation {
   readonly line: number;
   /** 1-indexed column number. */
   readonly column: number;
+  /** Length of the token (default: 1 for missing/unknown). */
+  readonly length?: number;
 }
 
 // ---------------------------------------------------------------------------
