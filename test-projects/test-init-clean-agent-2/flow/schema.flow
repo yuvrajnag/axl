@@ -1,0 +1,8 @@
+-- schema.flow
+-- Entity Definitions
+
+ENTITY User
+
+  id       : String
+  name     : String
+  email    : String

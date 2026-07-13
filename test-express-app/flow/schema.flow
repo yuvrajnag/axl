@@ -1,0 +1,6 @@
+-- schema.flow
+ENTITY Book
+  id : String
+  title : String
+  author : String
+  year : String

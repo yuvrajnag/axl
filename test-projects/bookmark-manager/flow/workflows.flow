@@ -1,0 +1,6 @@
+-- workflows.flow
+-- Workflow Definitions
+
+WORKFLOW AddBookmark
+  STEP create_bookmark
+END

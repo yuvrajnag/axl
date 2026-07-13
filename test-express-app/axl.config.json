@@ -1,0 +1,6 @@
+{
+  "name": "test-express-app",
+  "flowDir": "./flow",
+  "outDir": "./build",
+  "generatedDir": "./generated"
+}

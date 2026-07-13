@@ -1,0 +1,5 @@
+-- workflows.flow
+WORKFLOW ManageBooks
+  STEP create_book
+  STEP list_books
+END

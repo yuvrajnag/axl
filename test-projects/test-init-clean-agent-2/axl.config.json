@@ -1,0 +1,6 @@
+{
+  "name": "test-init-clean-agent-2",
+  "flowDir": "./flow",
+  "outDir": "./build",
+  "generatedDir": "./generated"
+}
