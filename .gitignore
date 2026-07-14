@@ -9,6 +9,10 @@ dist/
 *.env
 *.tsbuildinfo
 
-/test-*/
+/test-clean-init/
+/test-express-app/
+/test-projects/bookmark-manager/
+/test-projects/express-app/
+/test-projects/test-init-*/
 /e2e-*/
 /hotel-empty/
