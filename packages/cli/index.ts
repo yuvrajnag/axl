@@ -47,40 +47,103 @@ const VERSION = getVersion();
 const HELP = () => {
   return `
   axl v${VERSION} · AI Experience Layer
+  ${c.secondary("The declarative backend engine for serverless workflows and AI agents.")}
 
   ${c.primary("Usage")}
     axl <command> [options]
 
-  ${c.primary("Core")}
-    init         ${c.plain("scaffold a new project")}
-    validate     ${c.plain("check flow files")}
-    compile      ${c.plain("build the manifest")}
-    generate     ${c.plain("generate code from manifest")}
-    build        ${c.plain("compile + generate")}
+  ${c.primary("Core Commands")}
+    init         ${c.plain("scaffold a new project in the current or specified directory")}
+    validate     ${c.plain("type-check and validate all .flow files")}
+    compile      ${c.plain("build the manifest.json execution graph")}
+    generate     ${c.plain("generate typescript client/server code from the manifest")}
+    build        ${c.plain("run compile + generate sequentially")}
 
-  ${c.primary("Dev")}
-    serve        ${c.plain("start the AXL server (MCP over HTTP)")}
-    dev          ${c.plain("watch mode")}
-    doctor       ${c.plain("diagnose environment & project")}
-    info         ${c.plain("print project metadata")}
+  ${c.primary("Development Commands")}
+    serve        ${c.plain("start the AXL Engine (REST & MCP transports)")}
+    dev          ${c.plain("start watch mode, recompiling on file changes")}
+    doctor       ${c.plain("diagnose environment and project health")}
+    info         ${c.plain("print parsed project configuration and metadata")}
 
-  ${c.primary("Utility")}
-    clean        ${c.plain("remove build output")}
-    format       ${c.plain("format flow files")}
-    lint         ${c.plain("lint flow files")}
+  ${c.primary("Utility Commands")}
+    clean        ${c.plain("remove build/ and generated/ outputs")}
+    format       ${c.plain("auto-format .flow files to standard style")}
+    lint         ${c.plain("lint .flow files for warnings and best practices")}
     config       ${c.plain("view or edit axl.config.json")}
 
-  ${c.primary("Options")}
-    -h, --help      ${c.plain("show help")}
-    -v, --version   ${c.plain("print version")}
-    --json          ${c.plain("machine-readable output")}
+  ${c.primary("Global Options")}
+    -h, --help      ${c.plain("show help for axl or a specific command")}
+    -v, --version   ${c.plain("print the current version")}
+    --json          ${c.plain("format output as machine-readable JSON")}
     --quiet         ${c.plain("suppress non-essential output")}
-    --verbose       ${c.plain("extra diagnostic output")}
+    --verbose       ${c.plain("enable extra diagnostic logging")}
 
-    ${c.secondary("axl init  ·  axl compile  ·  axl doctor")}
+  ${c.primary("Examples")}
+    axl init my-app
+    axl compile --dir ./flow --out ./build
+    axl serve --both --port 8080
 
+  ${c.secondary("Run 'axl <command> --help' for command-specific options.")}
   ${c.secondary("docs " + icons.arrow)} ${c.accent("github.com/yuvrajnag/axl")}
 `;
+};
+
+const COMMAND_HELP = (cmd: string) => {
+  const helps: Record<string, string> = {
+    init: `
+  axl init · Scaffold a new project
+
+  ${c.primary("Usage")}
+    axl init [dir] [options]
+
+  ${c.primary("Options")}
+    -y, --yes       ${c.plain("skip interactive prompts")}
+    --dir <path>    ${c.plain("target directory (default: current directory)")}
+
+  ${c.primary("Examples")}
+    axl init my-project -y
+`,
+    compile: `
+  axl compile · Build the execution manifest
+
+  ${c.primary("Usage")}
+    axl compile [options]
+
+  ${c.primary("Options")}
+    --dir <path>    ${c.plain("source directory containing .flow files")}
+    --out <path>    ${c.plain("output directory for manifest.json")}
+
+  ${c.primary("Examples")}
+    axl compile
+    axl compile --dir src/flow --out dist/
+`,
+    serve: `
+  axl serve · Start the AXL Engine
+
+  ${c.primary("Usage")}
+    axl serve [options]
+
+  ${c.primary("Options")}
+    --port <num>    ${c.plain("port to bind the server to (default: 3960)")}
+    --rest          ${c.plain("mount the REST API endpoints (/actions, /workflows)")}
+    --both          ${c.plain("mount both REST and MCP endpoints")}
+    --trust-proxy   ${c.plain("trust X-Forwarded-For headers (for rate limiting)")}
+    --state-file    ${c.plain("path to a JSON file for persistent state")}
+    --dir <path>    ${c.plain("directory containing .flow files")}
+    --out <path>    ${c.plain("directory containing the compiled manifest.json")}
+
+  ${c.primary("Examples")}
+    axl serve                   ${c.secondary("(MCP only)")}
+    axl serve --both --port 80  ${c.secondary("(REST + MCP on port 80)")}
+    axl serve --rest            ${c.secondary("(REST only)")}
+`
+  };
+
+  return helps[cmd] || `
+  ${c.primary(`axl ${cmd}`)}
+  Run this command to execute the ${cmd} operation.
+  Use global options like --dir or --out to customize paths.
+  `;
 };
 
 // ---------------------------------------------------------------------------
@@ -144,7 +207,17 @@ async function main(): Promise<void> {
   }
 
   // --help / -h
-  if (!args.command || args.booleans.has("--help") || args.booleans.has("-h") || args.command === "help") {
+  if (args.booleans.has("--help") || args.booleans.has("-h") || args.command === "help") {
+    const cmd = args.command === "help" ? args.positional[0] : args.command;
+    if (cmd && KNOWN_COMMANDS.includes(cmd)) {
+      console.log(COMMAND_HELP(cmd));
+    } else {
+      console.log(HELP());
+    }
+    process.exit(0);
+  }
+
+  if (!args.command) {
     console.log(HELP());
     process.exit(0);
   }
