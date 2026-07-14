@@ -1,3 +1,0 @@
-WORKFLOW PatientVisit
-  STEP schedule_appointment
-END

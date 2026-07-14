@@ -1,2 +1,0 @@
-PERMISSION create_post : AUTH
-PERMISSION like_post : AUTH

@@ -1,3 +1,0 @@
--- auth.flow
-PERMISSION list_books : PUBLIC
-PERMISSION create_book : PUBLIC

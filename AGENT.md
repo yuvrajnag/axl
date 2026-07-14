@@ -26,6 +26,16 @@ When helping a user build an AXL project:
 - Set `public` to `true` only for intentionally unauthenticated endpoints (like login/register). All other endpoints should be `public: false` (which is the default).
 - For sensitive actions (like `transfer_funds`), always use `confirm: true` to enable the Two-Phase OTP gate.
 
+### ⚙️ Configuration (axl.config.json)
+The `axl.config.json` file controls CLI paths and server execution settings. When working with authentication, if the real backend expects a specific cookie key (like `JSESSIONID` or `connect.sid` instead of the default `sid`), specify it in `axl.config.json`:
+\`\`\`json
+{
+  "auth": {
+    "cookieKey": "connect.sid"
+  }
+}
+\`\`\`
+
 ### 🤝 Contribution Guidelines
 If you are asked to fix a bug in the AXL compiler or engine itself:
 - Ensure all 79+ vitest tests pass (`npx vitest run`).

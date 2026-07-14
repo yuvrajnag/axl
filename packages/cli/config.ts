@@ -23,6 +23,10 @@ export interface AxlConfig {
   generatedDir: string;
   /** Path to the file-backed state store (if opted in) */
   stateFile?: string;
+  /** Authentication configuration for the server transports */
+  auth?: {
+    cookieKey?: string;
+  };
 }
 
 const DEFAULT_CONFIG: AxlConfig = {
@@ -74,6 +78,7 @@ export function loadConfig(projectRoot: string): AxlConfig {
       outDir: parsed.outDir ?? DEFAULT_CONFIG.outDir,
       generatedDir: parsed.generatedDir ?? DEFAULT_CONFIG.generatedDir,
       stateFile: parsed.stateFile,
+      auth: parsed.auth,
     };
   } catch {
     return { ...DEFAULT_CONFIG };

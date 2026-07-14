@@ -1,5 +1,0 @@
--- auth.flow
--- Permission and Security Rules
-
-PERMISSION list_products : PUBLIC
-PERMISSION create_product : AUTH

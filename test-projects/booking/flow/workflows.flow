@@ -1,3 +1,0 @@
-WORKFLOW BookTrip
-  STEP create_booking
-END

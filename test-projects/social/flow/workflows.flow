@@ -1,3 +1,0 @@
-WORKFLOW PublishPost
-  STEP create_post
-END

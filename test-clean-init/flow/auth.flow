@@ -1,5 +1,0 @@
--- auth.flow
--- Permission and Security Rules
-
-PERMISSION list_users : PUBLIC
-PERMISSION create_user : AUTH

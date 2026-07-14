@@ -8,3 +8,7 @@ dist/
 .env
 *.env
 *.tsbuildinfo
+
+/test-*/
+/e2e-*/
+/hotel-empty/

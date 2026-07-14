@@ -324,7 +324,8 @@ async function main(): Promise<void> {
           trustProxy: args.booleans.has("--trust-proxy"),
           stateFile: args.flags.get("--state-file") ?? config.stateFile,
           rest: args.booleans.has("--rest"),
-          both: args.booleans.has("--both")
+          both: args.booleans.has("--both"),
+          cookieKey: config.auth?.cookieKey
         });
         break;
       case "generate":

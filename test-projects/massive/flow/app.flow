@@ -1,9 +1,0 @@
-
-APP Massive
-NAME "Massive"
-VERSION 1.0.0
-DESCRIPTION "Massive Project"
-FRAMEWORK Express
-LANGUAGE TypeScript
-DATABASE PostgreSQL
-BASE_URL https://api.massive.com

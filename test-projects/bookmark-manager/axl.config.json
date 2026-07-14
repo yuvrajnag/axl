@@ -1,6 +1,0 @@
-{
-  "name": "bookmark-manager",
-  "flowDir": "./flow",
-  "outDir": "./build",
-  "generatedDir": "./generated"
-}

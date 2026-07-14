@@ -15,7 +15,7 @@ import { c, icons, errorBlock, section, blank } from "./ui.js";
 // Storage for per-request context (like session cookie)
 export const requestContext = new AsyncLocalStorage<{ sessionCookie?: string, idempotencyKey?: string, ip?: string }>();
 
-export async function serve(outDir: string, options: { port?: number, sessionTimeoutMs?: number, trustProxy?: boolean, stateFile?: string, rest?: boolean, both?: boolean }) {
+export async function serve(outDir: string, options: { port?: number, sessionTimeoutMs?: number, trustProxy?: boolean, stateFile?: string, rest?: boolean, both?: boolean, cookieKey?: string }) {
   const manifestPath = path.join(outDir, "manifest.json");
   if (!fs.existsSync(manifestPath)) {
     blank();
@@ -57,8 +57,9 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
       const token = authHeader.substring(7).trim();
       // The backend expects a Cookie header in the format "key=value". 
-      // If the client sends a raw bearer token, we wrap it using the "sid" convention.
-      sessionCookie = token.includes("=") ? token : `sid=${token}`;
+      // If the client sends a raw bearer token, we wrap it using the configured cookieKey (default: "sid").
+      const cookieKey = options.cookieKey || "sid";
+      sessionCookie = token.includes("=") ? token : `${cookieKey}=${token}`;
     } else if (req.headers["x-axl-session"]) {
       sessionCookie = req.headers["x-axl-session"] as string;
     }

@@ -1,6 +1,0 @@
--- workflows.flow
--- Workflow Definitions
-
-WORKFLOW AddProduct
-  STEP create_product
-END

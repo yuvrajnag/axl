@@ -1,7 +1,0 @@
--- schema.flow
--- Entity Definitions
-
-ENTITY Product
-  id : String
-  name : String
-  price : Number

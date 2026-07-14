@@ -1,7 +1,6 @@
 <div align="center">
-  <!-- PLACEHOLDER_LOGO_SVG -->
   <h1>AXL</h1>
-  <p><strong>The modern declarative engine for serverless workflows, APIs, and AI integrations.</strong></p>
+  <p><strong>AXL compiles a .flow spec into a permission-aware MCP server (and optionally a REST API) that proxies to a real backend.</strong></p>
 
   <p>
     <a href="#quick-start">Quick Start</a> •
@@ -52,8 +51,6 @@ AXL natively serves your endpoints simultaneously as standard **REST APIs** (for
 ## 🏗 Architecture
 
 <div align="center">
-  <!-- PLACEHOLDER_ARCHITECTURE_SVG -->
-  <i>Mermaid representation of architecture below. Replace with polished SVG for production release.</i>
 </div>
 
 ```mermaid

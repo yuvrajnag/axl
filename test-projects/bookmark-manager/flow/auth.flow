@@ -1,5 +1,0 @@
--- auth.flow
--- Permission and Security Rules
-
-PERMISSION list_bookmarks : PUBLIC
-PERMISSION create_bookmark : AUTH
