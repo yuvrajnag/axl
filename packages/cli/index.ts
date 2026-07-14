@@ -164,7 +164,7 @@ async function main(): Promise<void> {
   const GLOBAL_FLAGS = ["--verbose", "--quiet", "--json", "--help", "-h", "--version", "-v"];
   const CMD_FLAGS: Record<string, string[]> = {
     init: ["--yes", "-y", "--dir"],
-    serve: ["--port", "--dir", "--out", "--trust-proxy", "--state-file"],
+    serve: ["--port", "--dir", "--out", "--trust-proxy", "--state-file", "--rest", "--both"],
     validate: ["--dir", "--out"],
     compile: ["--dir", "--out"],
     generate: ["--dir", "--out"],
@@ -249,7 +249,9 @@ async function main(): Promise<void> {
         await serve(paths.outDir, {
           port: args.flags.get("--port") ? parseInt(args.flags.get("--port")!, 10) : undefined,
           trustProxy: args.booleans.has("--trust-proxy"),
-          stateFile: args.flags.get("--state-file") ?? config.stateFile
+          stateFile: args.flags.get("--state-file") ?? config.stateFile,
+          rest: args.booleans.has("--rest"),
+          both: args.booleans.has("--both")
         });
         break;
       case "generate":

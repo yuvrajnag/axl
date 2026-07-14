@@ -7,13 +7,15 @@ import { randomUUID } from "crypto";
 // @ts-ignore
 import { buildAxlServer } from "../../src/axl-server.js";
 // @ts-ignore
+import { buildRestAdapter } from "../../src/rest-adapter.js";
+// @ts-ignore
 import { FileStateStore } from "../../src/state.js";
 import { c, icons, errorBlock, section, blank } from "./ui.js";
 
 // Storage for per-request context (like session cookie)
 export const requestContext = new AsyncLocalStorage<{ sessionCookie?: string, idempotencyKey?: string, ip?: string }>();
 
-export async function serve(outDir: string, options: { port?: number, sessionTimeoutMs?: number, trustProxy?: boolean, stateFile?: string }) {
+export async function serve(outDir: string, options: { port?: number, sessionTimeoutMs?: number, trustProxy?: boolean, stateFile?: string, rest?: boolean, both?: boolean }) {
   const manifestPath = path.join(outDir, "manifest.json");
   if (!fs.existsSync(manifestPath)) {
     blank();
@@ -31,6 +33,9 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     stateStore = new FileStateStore(statePath);
   }
 
+  const useMcp = !options.rest;   // MCP unless --rest only
+  const useRest = options.rest || options.both;  // REST if --rest or --both
+
   const { engine, manifest } = buildAxlServer(manifestPath, { stateStore });
 
   const app = express();
@@ -43,79 +48,9 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     });
   });
 
-  app.get("/.well-known/mcp", (req, res) => {
-    const authRequired = Object.values(manifest.actions || {}).some(
-      (a: any) => a.permission === "AUTH"
-    );
-
-    const protocol = req.protocol || "http";
-    const host = req.get("host") || "localhost";
-    const absoluteUrl = `${protocol}://${host}/mcp`;
-
-    res.set("Content-Type", "application/json");
-    res.set("X-Content-Type-Options", "nosniff");
-    res.json({
-      mcp_version: "1.0",
-      server_name: manifest.app.name,
-      server_version: manifest.app.version,
-      endpoints: {
-        streamable_http: absoluteUrl
-      },
-      capabilities: {
-        tools: true,
-        resources: false,
-        prompts: false
-      },
-      authentication: {
-        required: authRequired,
-        methods: ["api_key"]
-      }
-    });
-  });
-
-  // NOTE: This Map tracks active MCP HTTP transport sessions.
-  // It is intentionally NOT backed by the StateStore. An SSE connection (which is what 
-  // StreamableHTTPServerTransport manages) is inherently tied to the active process memory.
-  // If the server restarts, those TCP/HTTP connections are physically dropped. 
-  // Therefore, this session state remains process-local and will not survive a restart.
-  const sessions = new Map<string, { transport: StreamableHTTPServerTransport, lastActivity: number }>();
-
-  // Handle all MCP traffic through the Streamable HTTP transport
-  app.all("/mcp", async (req, res, next) => {
-    const sessionId = req.headers["mcp-session-id"] as string | undefined;
-    let transport: StreamableHTTPServerTransport;
-
-    if (sessionId) {
-      const sessionData = sessions.get(sessionId);
-      if (!sessionData) {
-        return res.status(404).json({ error: "Session not found" });
-      }
-      sessionData.lastActivity = Date.now();
-      transport = sessionData.transport;
-    } else {
-      transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
-        onsessioninitialized: (sid) => {
-          sessions.set(sid, { transport, lastActivity: Date.now() });
-        },
-        onsessionclosed: (sid) => {
-          sessions.delete(sid);
-        }
-      });
-      const { server } = buildAxlServer(manifestPath, {
-        engine,
-        contextExtractor: () => {
-          const store = requestContext.getStore();
-          return {
-            sessionCookie: store?.sessionCookie,
-            idempotencyKey: store?.idempotencyKey,
-            ip: store?.ip
-          };
-        }
-      });
-      await server.connect(transport);
-    }
-
+  // Shared context extraction: parses session cookie, idempotency key, and IP
+  // from request headers. Used identically by both MCP and REST transports.
+  function extractContext(req: express.Request) {
     const authHeader = req.headers.authorization;
     let sessionCookie: string | undefined;
     
@@ -137,14 +72,114 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
       }
     }
 
-    // Run the request in the context of the extracted session
-    requestContext.run({ sessionCookie, idempotencyKey, ip }, () => {
-      transport.handleRequest(req, res).catch((err) => {
-        console.error("handleRequest error:", err);
-        next(err);
+    return { sessionCookie, idempotencyKey, ip };
+  }
+
+  // NOTE: This Map tracks active MCP HTTP transport sessions.
+  // It is intentionally NOT backed by the StateStore. An SSE connection (which is what 
+  // StreamableHTTPServerTransport manages) is inherently tied to the active process memory.
+  // If the server restarts, those TCP/HTTP connections are physically dropped. 
+  // Therefore, this session state remains process-local and will not survive a restart.
+  const sessions = new Map<string, { transport: StreamableHTTPServerTransport, lastActivity: number }>();
+
+  if (useMcp) {
+    app.get("/.well-known/mcp", (req, res) => {
+      const authRequired = Object.values(manifest.actions || {}).some(
+        (a: any) => a.permission === "AUTH"
+      );
+
+      const protocol = req.protocol || "http";
+      const host = req.get("host") || "localhost";
+      const absoluteUrl = `${protocol}://${host}/mcp`;
+
+      res.set("Content-Type", "application/json");
+      res.set("X-Content-Type-Options", "nosniff");
+      res.json({
+        mcp_version: "1.0",
+        server_name: manifest.app.name,
+        server_version: manifest.app.version,
+        endpoints: {
+          streamable_http: absoluteUrl
+        },
+        capabilities: {
+          tools: true,
+          resources: false,
+          prompts: false
+        },
+        authentication: {
+          required: authRequired,
+          methods: ["api_key"]
+        }
       });
     });
-  });
+
+    // Handle all MCP traffic through the Streamable HTTP transport
+    app.all("/mcp", async (req, res, next) => {
+      const sessionId = req.headers["mcp-session-id"] as string | undefined;
+      let transport: StreamableHTTPServerTransport;
+
+      if (sessionId) {
+        const sessionData = sessions.get(sessionId);
+        if (!sessionData) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+        sessionData.lastActivity = Date.now();
+        transport = sessionData.transport;
+      } else {
+        transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+          onsessioninitialized: (sid) => {
+            sessions.set(sid, { transport, lastActivity: Date.now() });
+          },
+          onsessionclosed: (sid) => {
+            sessions.delete(sid);
+          }
+        });
+        const { server } = buildAxlServer(manifestPath, {
+          engine,
+          contextExtractor: () => {
+            const store = requestContext.getStore();
+            return {
+              sessionCookie: store?.sessionCookie,
+              idempotencyKey: store?.idempotencyKey,
+              ip: store?.ip
+            };
+          }
+        });
+        await server.connect(transport);
+      }
+
+      const ctx = extractContext(req);
+
+      // Run the request in the context of the extracted session
+      requestContext.run(ctx, () => {
+        transport.handleRequest(req, res).catch((err) => {
+          console.error("handleRequest error:", err);
+          next(err);
+        });
+      });
+    });
+  }
+
+  if (useRest) {
+    const { router: restRouter } = buildRestAdapter(manifestPath, {
+      engine,
+      contextExtractor: () => {
+        const store = requestContext.getStore();
+        return {
+          sessionCookie: store?.sessionCookie,
+          idempotencyKey: store?.idempotencyKey,
+          ip: store?.ip
+        };
+      }
+    });
+
+    // Wrap REST routes with context extraction middleware and JSON body parser
+    app.use("/", express.json(), (req, res, next) => {
+      const ctx = extractContext(req);
+      requestContext.run(ctx, () => next());
+    }, restRouter);
+  }
 
   // Global error handler
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -154,13 +189,19 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
   });
 
   const port = options.port || 3939;
+  const transportLabel = useRest && useMcp ? "MCP + REST" : useRest ? "REST" : "MCP";
   
   const httpServer = app.listen(port, () => {
     section("AXL Server");
-    console.log(`  ${c.success(icons.success)} ${c.primary("Running")}`);
+    console.log(`  ${c.success(icons.success)} ${c.primary("Running")} (${transportLabel})`);
     blank();
     console.log(`  ${c.secondary("Health")}        ${c.accent(`http://localhost:${port}/health`)}`);
-    console.log(`  ${c.secondary("MCP Endpoint")}  ${c.accent(`http://localhost:${port}/mcp`)}`);
+    if (useMcp) {
+      console.log(`  ${c.secondary("MCP Endpoint")}  ${c.accent(`http://localhost:${port}/mcp`)}`);
+    }
+    if (useRest) {
+      console.log(`  ${c.secondary("REST API")}      ${c.accent(`http://localhost:${port}/actions/:name`)}`);
+    }
     blank();
   });
 
