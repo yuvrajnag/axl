@@ -55,7 +55,10 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     let sessionCookie: string | undefined;
     
     if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
-      sessionCookie = authHeader.substring(7);
+      const token = authHeader.substring(7).trim();
+      // The backend expects a Cookie header in the format "key=value". 
+      // If the client sends a raw bearer token, we wrap it using the "sid" convention.
+      sessionCookie = token.includes("=") ? token : `sid=${token}`;
     } else if (req.headers["x-axl-session"]) {
       sessionCookie = req.headers["x-axl-session"] as string;
     }

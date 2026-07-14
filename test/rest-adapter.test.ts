@@ -49,7 +49,7 @@ describe("REST Adapter", () => {
       body: JSON.stringify({ email: `rest_test_${Date.now()}@axl.dev`, password: "pw" })
     });
     const { sid } = await regRes.json();
-    userSession = `sid=${sid}`;
+    userSession = sid; // Natural, unprefixed token
 
     // Now call create_project via REST adapter with session
     const res = await fetch(`http://localhost:${REST_PORT}/actions/create_project`, {
@@ -75,7 +75,7 @@ describe("REST Adapter", () => {
       body: JSON.stringify({ email: `rest_wf_${Date.now()}@axl.dev`, password: "pw" })
     });
     const { sid } = await regRes.json();
-    const session = `sid=${sid}`;
+    const session = sid; // Natural, unprefixed token
 
     // First create a project (needed for TaskLifecycle workflow)
     const projectRes = await fetch(`http://localhost:${REST_PORT}/actions/create_project`, {
@@ -145,5 +145,20 @@ describe("REST Adapter", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe("VALIDATION_ERROR");
+  });
+
+  it("returns PERMISSION_DENIED for malformed/garbage token", async () => {
+    const res = await fetch(`http://localhost:${REST_PORT}/actions/create_project`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer garbage_token_123`
+      },
+      body: JSON.stringify({ name: "Hacked Project" })
+    });
+
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe("BACKEND_ERROR");
   });
 });
