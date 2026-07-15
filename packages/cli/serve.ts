@@ -48,6 +48,33 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     });
   });
 
+  app.get("/manifest.json", (req, res) => {
+    res.set("Cache-Control", "public, max-age=3600");
+    // Express automatically generates ETags for res.json() by default.
+    res.json(manifest);
+  });
+
+  app.get("/.well-known/axl", (req, res) => {
+    const protocol = req.protocol || "http";
+    const host = req.get("host") || "localhost";
+    const baseUrl = `${protocol}://${host}`;
+
+    res.set("Content-Type", "application/json");
+    res.set("X-Content-Type-Options", "nosniff");
+    res.json({
+      version: "1.0",
+      server_name: manifest.app?.name || "axl-server",
+      server_version: manifest.app?.version || "1.0.0",
+      manifest: `${baseUrl}/manifest.json`,
+      rest: useRest ? baseUrl : null,
+      mcp: useMcp ? `${baseUrl}/mcp` : null,
+      auth: {
+        type: "bearer",
+        note: "Obtain a session via the project's own login/register action, then send it as: Authorization: Bearer <token>"
+      }
+    });
+  });
+
   // Shared context extraction: parses session cookie, idempotency key, and IP
   // from request headers. Used identically by both MCP and REST transports.
   function extractContext(req: express.Request) {
