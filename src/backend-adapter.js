@@ -38,8 +38,11 @@ export async function executeHttpCall(baseUrl, actionDef, args, context) {
   if (method !== "GET" && method !== "DELETE") {
     fetchOpts.body = JSON.stringify(remaining);
   } else if (Object.keys(remaining).length > 0 && method === "GET") {
-    const qs = new URLSearchParams(remaining).toString();
-    fetchOpts.url = url + (url.includes("?") ? "&" : "?") + qs;
+    const u = new URL(url);
+    for (const [k, v] of Object.entries(remaining)) {
+      u.searchParams.append(k, String(v));
+    }
+    fetchOpts.url = u.toString();
   }
 
   const finalUrl = fetchOpts.url || url;

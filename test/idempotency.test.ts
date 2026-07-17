@@ -47,4 +47,28 @@ describe("Idempotency Cache", () => {
     expect(executions).toBe(2);
     expect(resB.count).toBe(2);
   });
+
+  it("prevents double execution when the same idempotency key fires concurrently", async () => {
+    const mockManifest = {
+      app: { name: "T", version: "1.0.0", base_url: "http://localhost:4000" },
+      actions: {
+        pay: { permission: "PUBLIC", endpoint: { path: "/pay", method: "POST" }, input: {} }
+      }
+    };
+    const state = new InMemoryStateStore();
+    const engine = new AxlEngine(mockManifest, state);
+    let executions = 0;
+    engine._executeHttp = async () => {
+      await new Promise(r => setTimeout(r, 20)); // simulate real network latency
+      executions++;
+      return { success: true, executions };
+    };
+    const ctx = { idempotencyKey: "same-key", ip: "1.2.3.4" };
+    await Promise.all([
+      engine.execute("pay", {}, ctx),
+      engine.execute("pay", {}, ctx)
+    ]);
+    expect(executions).toBe(1); // currently fails: executions === 2
+    engine.destroy();
+  });
 });

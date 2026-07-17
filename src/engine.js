@@ -142,38 +142,48 @@ export class AxlEngine {
     if (context && context.idempotencyKey) {
       const clientKey = context.sessionCookie || context.ip || 'anon';
       cacheKey = `${clientKey}:${actionName}:${context.idempotencyKey}`;
-      const cached = await this.state.get("idempotencyCache", cacheKey);
-      if (cached) return cached;
     }
 
-    if (actionDef.confirm === "OTP") {
-      const token = crypto.randomUUID();
-      const otp = String(crypto.randomInt(100000, 999999));
-      await this.state.set("pendingConfirmations", token, {
-        actionName, args, context, otp,
-        attempts: 0
-      }, 5 * 60 * 1000); // 5 min TTL
-      
-      const result = {
-        confirmationRequired: true,
-        token,
-        // In production this gets sent via SMS/email, never returned in the response.
-        ...(process.env.NODE_ENV !== "production" ? { otp_demo_only: otp } : {}),
-        message: `Action "${actionName}" requires confirmation. Call confirm_action with this token and the OTP.`,
-      };
-      
+    const doExecute = async () => {
+      if (cacheKey) {
+        const cached = await this.state.get("idempotencyCache", cacheKey);
+        if (cached) return cached;
+      }
+
+      if (actionDef.confirm === "OTP") {
+        const token = crypto.randomUUID();
+        const otp = String(crypto.randomInt(100000, 999999));
+        await this.state.set("pendingConfirmations", token, {
+          actionName, args, context, otp,
+          attempts: 0
+        }, 5 * 60 * 1000); // 5 min TTL
+        
+        const result = {
+          confirmationRequired: true,
+          token,
+          // In production this gets sent via SMS/email, never returned in the response.
+          ...(process.env.NODE_ENV !== "production" ? { otp_demo_only: otp } : {}),
+          message: `Action "${actionName}" requires confirmation. Call confirm_action with this token and the OTP.`,
+        };
+        
+        if (cacheKey) {
+          await this.state.set("idempotencyCache", cacheKey, result, 86400000); // 24hr TTL
+        }
+        
+        return result;
+      }
+
+      const result = await this._executeHttp(actionName, actionDef, args, context);
       if (cacheKey) {
         await this.state.set("idempotencyCache", cacheKey, result, 86400000); // 24hr TTL
       }
-      
       return result;
-    }
+    };
 
-    const result = await this._executeHttp(actionName, actionDef, args, context);
     if (cacheKey) {
-      await this.state.set("idempotencyCache", cacheKey, result, 86400000); // 24hr TTL
+      return await withLock(`idem:${cacheKey}`, doExecute);
     }
-    return result;
+    return await doExecute();
   }
 
   /**
