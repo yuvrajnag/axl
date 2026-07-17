@@ -71,7 +71,7 @@ Get a fully functioning AXL server running in under 5 minutes.
 
 ### 1. Install AXL Globally
 ```bash
-npm install -g @axl/cli
+npm install -g scl-axl
 ```
 
 ### 2. Initialize a Project

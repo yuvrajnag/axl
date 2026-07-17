@@ -16,22 +16,22 @@ The easiest way to use AXL across multiple projects is to install the CLI global
 
 ### npm
 ```bash
-npm install -g @axl/cli
+npm install -g scl-axl
 ```
 
 ### pnpm
 ```bash
-pnpm add -g @axl/cli
+pnpm add -g scl-axl
 ```
 
 ### bun
 ```bash
-bun add -g @axl/cli
+bun add -g scl-axl
 ```
 
 ### yarn
 ```bash
-yarn global add @axl/cli
+yarn global add scl-axl
 ```
 
 Once installed globally, you can initialize a new project anywhere:
@@ -49,7 +49,7 @@ If you prefer to lock your AXL version per-project, you can install it locally a
 ```bash
 mkdir my-project && cd my-project
 npm init -y
-npm install --save-dev @axl/cli
+npm install --save-dev scl-axl
 ```
 
 You can then run commands via `npx`:

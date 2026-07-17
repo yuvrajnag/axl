@@ -8,7 +8,7 @@ Go from zero to a fully functional AXL server with REST APIs, MCP tools, authent
 Install the AXL CLI globally using npm (requires Node.js v18+).
 
 ```bash
-npm install -g @axl/cli
+npm install -g scl-axl
 ```
 
 ### Step 2: Initialize a Project
