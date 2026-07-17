@@ -10,12 +10,14 @@ import { buildAxlServer } from "../../src/axl-server.js";
 import { buildRestAdapter } from "../../src/rest-adapter.js";
 // @ts-ignore
 import { FileStateStore } from "../../src/state.js";
+// @ts-ignore
+import { TransportManager } from "../../src/transport-manager.js";
 import { c, icons, errorBlock, section, blank } from "./ui.js";
 
 // Storage for per-request context (like session cookie)
 export const requestContext = new AsyncLocalStorage<{ sessionCookie?: string, idempotencyKey?: string, ip?: string }>();
 
-export async function serve(outDir: string, options: { port?: number, sessionTimeoutMs?: number, trustProxy?: boolean, stateFile?: string, rest?: boolean, both?: boolean, cookieKey?: string }) {
+export async function serve(outDir: string, options: { port?: number, sessionTimeoutMs?: number, trustProxy?: boolean, stateFile?: string, cookieKey?: string }) {
   const manifestPath = path.join(outDir, "manifest.json");
   if (!fs.existsSync(manifestPath)) {
     blank();
@@ -32,9 +34,6 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     const statePath = path.resolve(options.stateFile);
     stateStore = new FileStateStore(statePath);
   }
-
-  const useMcp = !options.rest;   // MCP unless --rest only
-  const useRest = options.rest || options.both;  // REST if --rest or --both
 
   const { engine, manifest } = buildAxlServer(manifestPath, { stateStore });
 
@@ -66,8 +65,8 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
       server_name: manifest.app?.name || "axl-server",
       server_version: manifest.app?.version || "1.0.0",
       manifest: `${baseUrl}/manifest.json`,
-      rest: useRest ? baseUrl : null,
-      mcp: useMcp ? `${baseUrl}/mcp` : null,
+      rest: baseUrl,
+      mcp: `${baseUrl}/mcp`,
       auth: {
         type: "bearer",
         note: "Obtain a session via the project's own login/register action, then send it as: Authorization: Bearer <token>"
@@ -113,8 +112,11 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
   // Therefore, this session state remains process-local and will not survive a restart.
   const sessions = new Map<string, { transport: StreamableHTTPServerTransport, lastActivity: number }>();
 
-  if (useMcp) {
-    app.get("/.well-known/mcp", (req, res) => {
+  const registry = new TransportManager();
+
+  // Register MCP Transport
+  registry.register("MCP", (app: express.Express, { engine, manifest }: any) => {
+    app.get("/.well-known/mcp", (req: express.Request, res: express.Response) => {
       const authRequired = Object.values(manifest.actions || {}).some(
         (a: any) => a.permission === "AUTH"
       );
@@ -145,7 +147,7 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     });
 
     // Handle all MCP traffic through the Streamable HTTP transport
-    app.all("/mcp", async (req, res, next) => {
+    app.all("/mcp", async (req: express.Request, res: express.Response, next: express.NextFunction) => {
       const sessionId = req.headers["mcp-session-id"] as string | undefined;
       let transport: StreamableHTTPServerTransport;
 
@@ -190,9 +192,10 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
         });
       });
     });
-  }
+  });
 
-  if (useRest) {
+  // Register REST Transport
+  registry.register("REST", (app: express.Express, { engine }: any) => {
     const { router: restRouter } = buildRestAdapter(manifestPath, {
       engine,
       contextExtractor: () => {
@@ -206,11 +209,17 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     });
 
     // Wrap REST routes with context extraction middleware and JSON body parser
-    app.use("/", express.json(), (req, res, next) => {
+    app.use("/", express.json(), (req: express.Request, res: express.Response, next: express.NextFunction) => {
       const ctx = extractContext(req);
       requestContext.run(ctx, () => next());
     }, restRouter);
-  }
+  });
+
+  // TODO: Leave a clean extension point for a future WebSocket adapter here.
+  // registry.register("WebSocket", (app, { engine, manifest }) => { ... });
+
+  // Mount all transports
+  registry.mountAll(app, { engine, manifest });
 
   // Global error handler
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -220,19 +229,14 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
   });
 
   const port = options.port || 3939;
-  const transportLabel = useRest && useMcp ? "MCP + REST" : useRest ? "REST" : "MCP";
   
   const httpServer = app.listen(port, () => {
     section("AXL Server");
-    console.log(`  ${c.success(icons.success)} ${c.primary("Running")} (${transportLabel})`);
+    console.log(`  ${c.success(icons.success)} ${c.primary("Running")} (MCP + REST)`);
     blank();
     console.log(`  ${c.secondary("Health")}        ${c.accent(`http://localhost:${port}/health`)}`);
-    if (useMcp) {
-      console.log(`  ${c.secondary("MCP Endpoint")}  ${c.accent(`http://localhost:${port}/mcp`)}`);
-    }
-    if (useRest) {
-      console.log(`  ${c.secondary("REST API")}      ${c.accent(`http://localhost:${port}/actions/:name`)}`);
-    }
+    console.log(`  ${c.secondary("MCP Endpoint")}  ${c.accent(`http://localhost:${port}/mcp`)}`);
+    console.log(`  ${c.secondary("REST API")}      ${c.accent(`http://localhost:${port}/actions/:name`)}`);
     blank();
   });
 

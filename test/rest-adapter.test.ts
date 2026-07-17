@@ -19,10 +19,10 @@ beforeAll(async () => {
   const { server } = await import("../test-backend/server.js");
   testBackendProcess = server;
 
-  // Start AXL server in REST-only mode with the DEFAULT sid key on port REST_PORT
-  await serve(APP_FLOW_DIR, { port: REST_PORT, rest: true });
-  // Start AXL server in REST-only mode with a CUSTOM cookie key on port 3951
-  await serve(APP_FLOW_DIR, { port: 3951, rest: true, cookieKey: "connect.id" });
+  // Start AXL server with the DEFAULT sid key on port REST_PORT
+  await serve(APP_FLOW_DIR, { port: REST_PORT });
+  // Start AXL server with a CUSTOM cookie key on port 3951
+  await serve(APP_FLOW_DIR, { port: 3951, cookieKey: "connect.id" });
 
   // Wait for servers to be ready
   await new Promise(resolve => setTimeout(resolve, 500));

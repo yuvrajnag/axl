@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Changed
+- **Architectural Simplification**: Removed transport selection flags (`--rest`, `--mcp`, `--both`) from the CLI. The Engine now unconditionally serves all available transports (REST and MCP) simultaneously on the designated port.
+- **Transport Layer Refactoring**: Introduced `TransportManager` to manage HTTP endpoint registration and cleanly support future pluggable transports like WebSockets without core engine alterations.
+- Modified Discovery Endpoints (`/.well-known/axl`) to reflect always-on transports.
 - **Discovery Endpoints**: `GET /.well-known/axl` and `GET /manifest.json` now expose server
   capabilities, active transports, and manifest location for AI client discovery (Thunderstrike, etc.).
 - **REST Transport Adapter**: AXL now natively mounts standard REST API routes (`/actions`, `/workflows`, `/confirm`) directly alongside the MCP transport.

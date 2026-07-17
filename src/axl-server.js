@@ -73,7 +73,7 @@ function registerTools(server, manifest, engine, sessionCookie, contextExtractor
         const result = await engine.confirmAction(token, otp);
         return textResult(result);
       } catch (err) {
-        return textResult({ error: "CONFIRMATION_FAILED", message: err.message });
+        return textResult({ error: "CONFIRMATION_FAILED", message: err.message }, true);
       }
     }
   );

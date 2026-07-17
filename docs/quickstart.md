@@ -34,17 +34,17 @@ axl compile
 ```
 *You should see a success message indicating the compilation took mere milliseconds.*
 
-### Step 5: Serve the Engine (REST & MCP)
-Start the execution engine. By passing `--both`, we instruct AXL to boot both the REST API and the Model Context Protocol (MCP) endpoints simultaneously.
+### Step 5: Serve the Engine
+Start the execution engine. AXL will automatically boot both the REST API and the Model Context Protocol (MCP) endpoints simultaneously.
 
 ```bash
-axl serve --both
+axl serve
 ```
 
 You should see output similar to this:
 ```
   AXL Server
-  [OK] Running (BOTH)
+  [OK] Running (MCP + REST)
 
   Health        http://localhost:3960/health
   MCP Endpoint  http://localhost:3960/mcp

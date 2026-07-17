@@ -39,7 +39,7 @@ export async function executeHttpCall(baseUrl, actionDef, args, context) {
     fetchOpts.body = JSON.stringify(remaining);
   } else if (Object.keys(remaining).length > 0 && method === "GET") {
     const qs = new URLSearchParams(remaining).toString();
-    fetchOpts.url = url + "?" + qs;
+    fetchOpts.url = url + (url.includes("?") ? "&" : "?") + qs;
   }
 
   const finalUrl = fetchOpts.url || url;

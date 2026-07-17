@@ -81,7 +81,7 @@ const HELP = () => {
   ${c.primary("Examples")}
     axl init my-app
     axl compile --dir ./flow --out ./build
-    axl serve --both --port 8080
+    axl serve --port 8080
 
   ${c.secondary("Run 'axl <command> --help' for command-specific options.")}
   ${c.secondary("docs " + icons.arrow)} ${c.accent("github.com/yuvrajnag/axl")}
@@ -125,17 +125,14 @@ const COMMAND_HELP = (cmd: string) => {
 
   ${c.primary("Options")}
     --port <num>    ${c.plain("port to bind the server to (default: 3960)")}
-    --rest          ${c.plain("mount the REST API endpoints (/actions, /workflows)")}
-    --both          ${c.plain("mount both REST and MCP endpoints")}
     --trust-proxy   ${c.plain("trust X-Forwarded-For headers (for rate limiting)")}
     --state-file    ${c.plain("path to a JSON file for persistent state")}
     --dir <path>    ${c.plain("directory containing .flow files")}
     --out <path>    ${c.plain("directory containing the compiled manifest.json")}
 
   ${c.primary("Examples")}
-    axl serve                   ${c.secondary("(MCP only)")}
-    axl serve --both --port 80  ${c.secondary("(REST + MCP on port 80)")}
-    axl serve --rest            ${c.secondary("(REST only)")}
+    axl serve
+    axl serve --port 80
 `
   };
 
@@ -237,7 +234,7 @@ async function main(): Promise<void> {
   const GLOBAL_FLAGS = ["--verbose", "--quiet", "--json", "--help", "-h", "--version", "-v"];
   const CMD_FLAGS: Record<string, string[]> = {
     init: ["--yes", "-y", "--dir"],
-    serve: ["--port", "--dir", "--out", "--trust-proxy", "--state-file", "--rest", "--both"],
+    serve: ["--port", "--dir", "--out", "--trust-proxy", "--state-file"],
     validate: ["--dir", "--out"],
     compile: ["--dir", "--out"],
     generate: ["--dir", "--out"],
@@ -256,6 +253,13 @@ async function main(): Promise<void> {
   const providedFlags = [...args.flags.keys(), ...args.booleans];
   for (const flag of providedFlags) {
     if (!allowedFlags.has(flag)) {
+      if (args.command === "serve" && (flag === "--rest" || flag === "--mcp" || flag === "--both")) {
+        errorBlock({
+          title: `Unknown option: '${flag}'`,
+          help: `AXL now always serves both REST and MCP. Use:\n  axl serve`
+        });
+        process.exit(1);
+      }
       if (args.command === "doctor" && flag === "--fix") {
         errorBlock({
           title: `Option not implemented`,
@@ -323,8 +327,6 @@ async function main(): Promise<void> {
           port: args.flags.get("--port") ? parseInt(args.flags.get("--port")!, 10) : undefined,
           trustProxy: args.booleans.has("--trust-proxy"),
           stateFile: args.flags.get("--state-file") ?? config.stateFile,
-          rest: args.booleans.has("--rest"),
-          both: args.booleans.has("--both"),
           cookieKey: config.auth?.cookieKey
         });
         break;

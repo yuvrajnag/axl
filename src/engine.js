@@ -4,6 +4,21 @@ import { buildZodShape } from "./schema-utils.js";
 import { InMemoryStateStore } from "./state.js";
 import { executeHttpCall } from "./backend-adapter.js";
 
+const locks = new Map();
+async function withLock(key, fn) {
+  while (locks.has(key)) {
+    await locks.get(key);
+  }
+  let resolve;
+  locks.set(key, new Promise(r => resolve = r));
+  try {
+    return await fn();
+  } finally {
+    locks.delete(key);
+    resolve();
+  }
+}
+
 
 
 /**
@@ -79,26 +94,28 @@ export class AxlEngine {
     const unit = match[2];
     const msPerUnit = { sec: 1000, min: 60000, hr: 3600000, day: 86400000 }[unit];
 
-    const now = Date.now();
-    let record = await this.state.get("rateLimits", key);
+    await withLock(`rl:${key}`, async () => {
+      const now = Date.now();
+      let record = await this.state.get("rateLimits", key);
 
-    if (record && now > record.windowEnd) {
-      await this.state.delete("rateLimits", key);
-      record = undefined;
-    }
+      if (record && now > record.windowEnd) {
+        await this.state.delete("rateLimits", key);
+        record = undefined;
+      }
 
-    if (!record) {
-      record = { count: 0, windowEnd: now + msPerUnit };
-      await this.state.set("rateLimits", key, record, msPerUnit);
-    }
+      if (!record) {
+        record = { count: 0, windowEnd: now + msPerUnit };
+        await this.state.set("rateLimits", key, record, msPerUnit);
+      }
 
-    if (record.count >= limit) {
-      throw new Error(`Rate limit exceeded for action "${actionName}".`);
-    }
-    
-    // Always re-set since we modified the count
-    record.count++;
-    await this.state.set("rateLimits", key, record, Math.max(0, record.windowEnd - now));
+      if (record.count >= limit) {
+        throw new Error(`Rate limit exceeded for action "${actionName}".`);
+      }
+      
+      // Always re-set since we modified the count
+      record.count++;
+      await this.state.set("rateLimits", key, record, Math.max(0, record.windowEnd - now));
+    });
   }
 
   /**
@@ -123,11 +140,10 @@ export class AxlEngine {
 
     let cacheKey;
     if (context && context.idempotencyKey) {
-      cacheKey = `${context.sessionCookie || 'anon'}:${actionName}:${context.idempotencyKey}`;
+      const clientKey = context.sessionCookie || context.ip || 'anon';
+      cacheKey = `${clientKey}:${actionName}:${context.idempotencyKey}`;
       const cached = await this.state.get("idempotencyCache", cacheKey);
-      if (cached) {
-        return cached;
-      }
+      if (cached) return cached;
     }
 
     if (actionDef.confirm === "OTP") {
@@ -164,21 +180,25 @@ export class AxlEngine {
    * Second phase of a confirm-gated action.
    */
   async confirmAction(token, submittedOtp) {
-    const pending = await this.state.get("pendingConfirmations", token);
-    if (!pending) {
-      throw new Error("Invalid or expired confirmation token.");
-    }
-    if (submittedOtp !== pending.otp) {
-      pending.attempts = (pending.attempts || 0) + 1;
-      if (pending.attempts >= 5) {
-        await this.state.delete("pendingConfirmations", token);
-        throw new Error("Too many incorrect attempts. Action cancelled -- please retry from the start.");
+    const pending = await withLock(`confirm:${token}`, async () => {
+      const p = await this.state.get("pendingConfirmations", token);
+      if (!p) {
+        throw new Error("Invalid or expired confirmation token.");
       }
-      await this.state.set("pendingConfirmations", token, pending, 5 * 60 * 1000);
-      throw new Error(`Incorrect OTP. ${5 - pending.attempts} attempt(s) remaining.`);
-    }
+      if (submittedOtp !== p.otp) {
+        p.attempts = (p.attempts || 0) + 1;
+        if (p.attempts >= 5) {
+          await this.state.delete("pendingConfirmations", token);
+          throw new Error("Too many incorrect attempts. Action cancelled -- please retry from the start.");
+        }
+        await this.state.set("pendingConfirmations", token, p, 5 * 60 * 1000);
+        throw new Error(`Incorrect OTP. ${5 - p.attempts} attempt(s) remaining.`);
+      }
 
-    await this.state.delete("pendingConfirmations", token);
+      await this.state.delete("pendingConfirmations", token);
+      return p;
+    });
+
     const actionDef = this.getActionDef(pending.actionName);
     const result = await this._executeHttp(pending.actionName, actionDef, pending.args, pending.context);
     

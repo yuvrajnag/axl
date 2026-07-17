@@ -1,6 +1,6 @@
 <div align="center">
   <h1>AXL</h1>
-  <p><strong>AXL compiles a .flow spec into a permission-aware MCP server (and optionally a REST API) that proxies to a real backend.</strong></p>
+  <p><strong>AXL compiles a .flow spec into a permission-aware server that exposes both MCP and REST APIs to proxy to a real backend.</strong></p>
 
   <p>
     <a href="#quick-start">Quick Start</a> •
@@ -86,9 +86,9 @@ axl compile
 ```
 
 ### 4. Serve the Engine
-Boot the engine with both REST and MCP endpoints active:
+Boot the engine:
 ```bash
-axl serve --both
+axl serve
 ```
 
 You're live!
@@ -97,6 +97,16 @@ You're live!
 - MCP Endpoint: `http://localhost:3960/mcp`
 
 [Read the full Quick Start Guide →](docs/quickstart.md)
+
+---
+
+## 🧭 Protocol Specification
+
+The AXL Engine implements a strict, multi-transport API protocol designed for AI and human clients. The framework adheres to a "Serve Everything" philosophy—meaning standard REST endpoints and MCP server endpoints are always mounted simultaneously. 
+
+For the definitive technical contract regarding discovery (`/.well-known/axl`), authentication, error handling, and the client connection lifecycle (like Thunderstrike's API-only sequence), read the canonical specification:
+
+[**Read the Formal AXL Protocol Specification →**](docs/protocol.md)
 
 ---
 
