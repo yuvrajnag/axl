@@ -4,6 +4,12 @@
   "description": "Syntax highlighting, hover tooltips, inline diagnostics, snippets, and format-on-save for the AXL .flow specification language",
   "version": "0.2.0",
   "publisher": "axl",
+  "icon": "icons/marketplace-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yuvrajnag/axl.git"
+  },
+  "license": "MIT",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -39,7 +45,7 @@
   "scripts": {
     "build": "tsc --noEmit && npm run bundle",
     "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --outfile=dist/extension.js --external:vscode --sourcemap",
-    "package": "vsce package --allow-missing-repository --no-dependencies"
+    "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
     "@axl/compiler": "0.1.0",
