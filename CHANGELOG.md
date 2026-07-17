@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Discovery Endpoints**: `GET /.well-known/axl` and `GET /manifest.json` now expose server
+  capabilities, active transports, and manifest location for AI client discovery (Thunderstrike, etc.).
 - **REST Transport Adapter**: AXL now natively mounts standard REST API routes (`/actions`, `/workflows`, `/confirm`) directly alongside the MCP transport.
 - **Backend Adapter Extraction**: The core backend execution engine was successfully extracted to `src/backend-adapter.js` to ensure the core execution model remains transport agnostic.
 - **CLI Options**: Added `--rest` and `--both` flags to `axl serve` to seamlessly expose the REST API alongside MCP endpoints.
