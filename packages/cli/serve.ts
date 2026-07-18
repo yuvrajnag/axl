@@ -1,6 +1,8 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import { createServer } from "http";
+import { WebSocketServer } from "ws";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { randomUUID } from "crypto";
@@ -57,6 +59,7 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     const protocol = req.protocol || "http";
     const host = req.get("host") || "localhost";
     const baseUrl = `${protocol}://${host}`;
+    const wsProtocol = protocol === "https" ? "wss" : "ws";
 
     res.set("Content-Type", "application/json");
     res.set("X-Content-Type-Options", "nosniff");
@@ -67,6 +70,7 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
       manifest: `${baseUrl}/manifest.json`,
       rest: baseUrl,
       mcp: `${baseUrl}/mcp`,
+      ws: `${wsProtocol}://${host}/ws`,
       auth: {
         type: "bearer",
         note: "Obtain a session via the project's own login/register action, then send it as: Authorization: Bearer <token>"
@@ -215,11 +219,87 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
     }, restRouter);
   });
 
-  // TODO: Leave a clean extension point for a future WebSocket adapter here.
-  // registry.register("WebSocket", (app, { engine, manifest }) => { ... });
+  const httpServer = createServer(app);
+
+  const wsLocks = new Map<string, Promise<void>>();
+  async function withWsLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    while (wsLocks.has(key)) { await wsLocks.get(key); }
+    let resolve!: () => void;
+    wsLocks.set(key, new Promise(r => resolve = r));
+    try { return await fn(); } finally { wsLocks.delete(key); resolve(); }
+  }
+
+  registry.register("WebSocket", (app: express.Express, { engine, manifest, httpServer }: any) => {
+    app.post("/events", express.json(), (req: express.Request, res: express.Response) => {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
+        return res.status(401).json({ error: "Missing or invalid bearer token" });
+      }
+      if (!req.body || !req.body.type) {
+        return res.status(400).json({ error: "Missing type in body" });
+      }
+      engine.emitEvent(req.body.type, req.body.data);
+      res.json({ success: true });
+    });
+
+    const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+    const connectedWsClients = new Map<string, { ws: any, lastHeartbeat: number }>();
+
+    wss.on("connection", async (ws) => {
+      const clientId = randomUUID();
+      await withWsLock(`wsClient:${clientId}`, async () => {
+        connectedWsClients.set(clientId, { ws, lastHeartbeat: Date.now() });
+      });
+
+      ws.on("message", async (msg) => {
+        try {
+          const parsed = JSON.parse(msg.toString());
+          if (parsed.type === "ping") {
+            await withWsLock(`wsClient:${clientId}`, async () => {
+              const client = connectedWsClients.get(clientId);
+              if (client) client.lastHeartbeat = Date.now();
+            });
+            ws.send(JSON.stringify({ type: "pong" }));
+          }
+        } catch (err) {}
+      });
+
+      ws.on("close", async () => {
+        await withWsLock(`wsClient:${clientId}`, async () => {
+          connectedWsClients.delete(clientId);
+        });
+      });
+    });
+
+    engine.on("event", async (eventPayload: any) => {
+      const clients = Array.from(connectedWsClients.values());
+      const payloadStr = JSON.stringify(eventPayload);
+      for (const client of clients) {
+        if (client.ws.readyState === 1) { // OPEN
+          client.ws.send(payloadStr);
+        }
+      }
+    });
+
+    const wsSweepInterval = setInterval(async () => {
+      const now = Date.now();
+      const keys = Array.from(connectedWsClients.keys());
+      for (const clientId of keys) {
+        await withWsLock(`wsClient:${clientId}`, async () => {
+          const client = connectedWsClients.get(clientId);
+          if (client && now - client.lastHeartbeat > 60000) {
+            client.ws.terminate();
+            connectedWsClients.delete(clientId);
+          }
+        });
+      }
+    }, 30000);
+
+    wss.on("close", () => clearInterval(wsSweepInterval));
+  });
 
   // Mount all transports
-  registry.mountAll(app, { engine, manifest });
+  registry.mountAll(app, { engine, manifest, httpServer });
 
   // Global error handler
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -230,13 +310,14 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
 
   const port = options.port || 3939;
   
-  const httpServer = app.listen(port, () => {
+  httpServer.listen(port, () => {
     section("AXL Server");
-    console.log(`  ${c.success(icons.success)} ${c.primary("Running")} (MCP + REST)`);
+    console.log(`  ${c.success(icons.success)} ${c.primary("Running")} (MCP + REST + WS)`);
     blank();
     console.log(`  ${c.secondary("Health")}        ${c.accent(`http://localhost:${port}/health`)}`);
     console.log(`  ${c.secondary("MCP Endpoint")}  ${c.accent(`http://localhost:${port}/mcp`)}`);
     console.log(`  ${c.secondary("REST API")}      ${c.accent(`http://localhost:${port}/actions/:name`)}`);
+    console.log(`  ${c.secondary("WS API")}        ${c.accent(`ws://localhost:${port}/ws`)}`);
     blank();
   });
 

@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { z } from "zod";
+import { EventEmitter } from "node:events";
 import { buildZodShape } from "./schema-utils.js";
 import { InMemoryStateStore } from "./state.js";
 import { executeHttpCall } from "./backend-adapter.js";
@@ -30,8 +31,9 @@ async function withLock(key, fn) {
  *   3. Confirm-gate check (OTP) -- two-phase: request, then confirm
  *   4. Execute the real HTTP call against the site's own backend
  */
-export class AxlEngine {
+export class AxlEngine extends EventEmitter {
   constructor(manifest, stateStore) {
+    super();
     this.manifest = manifest;
     this.state = stateStore || new InMemoryStateStore();
 
@@ -62,6 +64,10 @@ export class AxlEngine {
       throw new Error(`Unknown workflow: "${workflowName}"`);
     }
     return def;
+  }
+
+  emitEvent(type, data) {
+    this.emit("event", { type, data });
   }
 
   /**
@@ -150,6 +156,8 @@ export class AxlEngine {
         if (cached) return cached;
       }
 
+      this.emitEvent("action.started", { actionName, args, context });
+
       if (actionDef.confirm === "OTP") {
         const token = crypto.randomUUID();
         const otp = String(crypto.randomInt(100000, 999999));
@@ -177,6 +185,7 @@ export class AxlEngine {
       if (cacheKey) {
         await this.state.set("idempotencyCache", cacheKey, result, 86400000); // 24hr TTL
       }
+      this.emitEvent("action.completed", { actionName, args, context, result });
       return result;
     };
 
@@ -240,6 +249,8 @@ export class AxlEngine {
         }
       }
     }
+    
+    this.emitEvent("workflow.started", { workflowName, initialArgs, context });
     
     return this._continueWorkflow({
       workflowName,
@@ -315,6 +326,7 @@ export class AxlEngine {
         
         if (result && result.confirmationRequired) {
           await this.state.set("pausedWorkflows", result.token, state, 86400000); // 24hr TTL for paused workflows
+          this.emitEvent("workflow.paused", { workflowName: state.workflowName, actionName, token: result.token });
           return {
             ...result,
             message: `Workflow "${state.workflowName}" paused at step "${actionName}" for confirmation. Call resume_workflow with this token and the OTP.`
@@ -328,6 +340,12 @@ export class AxlEngine {
         state.remainingSteps.shift();
       }
     }
+    
+    this.emitEvent("workflow.completed", { 
+      workflowName: state.workflowName, 
+      workflowRunId: state.workflowRunId, 
+      finalResult: state.stepOutputs 
+    });
     
     return {
       status: "COMPLETED",
@@ -358,6 +376,7 @@ export class AxlEngine {
     }
     
     state.remainingSteps.shift();
+    this.emitEvent("workflow.resumed", { workflowName: state.workflowName, actionName });
     return this._continueWorkflow(state);
   }
 }
