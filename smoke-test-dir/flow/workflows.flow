@@ -5,4 +5,4 @@ WORKFLOW UserOnboarding
 
   STEP create_user
 
-  END
+END

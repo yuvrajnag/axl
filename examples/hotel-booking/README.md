@@ -35,5 +35,14 @@ Assuming you have installed the AXL CLI globally:
    ```
 
 3. **Make requests**:
-   Your server is now running on `http://localhost:3960`. 
-   You can connect an AI agent using the MCP protocol, or use standard REST calls.
+   Your server is now running on `http://localhost:3939`. 
+
+### Testing the Workflow (curl)
+
+You can run the full booking workflow directly via the REST API:
+
+```bash
+curl -X POST http://localhost:3939/workflows/BookHotel \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "user_123", "hotelId": "h_789", "dates": "2024-12-01 to 2024-12-05", "paymentToken": "tok_visa"}'
+```

@@ -124,7 +124,7 @@ const COMMAND_HELP = (cmd: string) => {
     axl serve [options]
 
   ${c.primary("Options")}
-    --port <num>    ${c.plain("port to bind the server to (default: 3960)")}
+    --port <num>    ${c.plain("port to bind the server to (default: 3939)")}
     --trust-proxy   ${c.plain("trust X-Forwarded-For headers (for rate limiting)")}
     --state-file    ${c.plain("path to a JSON file for persistent state")}
     --dir <path>    ${c.plain("directory containing .flow files")}

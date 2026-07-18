@@ -92,9 +92,9 @@ axl serve
 ```
 
 You're live!
-- Health: `http://localhost:3960/health`
-- REST API: `http://localhost:3960/actions/:name`
-- MCP Endpoint: `http://localhost:3960/mcp`
+- Health: `http://localhost:3939/health`
+- REST API: `http://localhost:3939/actions/:name`
+- MCP Endpoint: `http://localhost:3939/mcp`
 
 [Read the full Quick Start Guide →](docs/quickstart.md)
 

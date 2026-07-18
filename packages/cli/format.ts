@@ -34,6 +34,8 @@ export function formatFlowSource(code: string): string {
     
     if (TOP_LEVEL_KEYWORDS.includes(firstWord!) || line.startsWith("--")) {
       indent = 0;
+    } else if (["OUTPUT", "ENDPOINT", "DESC", "STEP", "BIND"].includes(firstWord!)) {
+      indent = 1;
     }
     
     let spaces = "  ".repeat(indent);
@@ -43,6 +45,8 @@ export function formatFlowSource(code: string): string {
       indent = 1;
     } else if (firstWord === "IF" || firstWord === "ELSE") {
       indent++;
+    } else if (firstWord === "INPUT") {
+      indent = 2;
     }
   }
   

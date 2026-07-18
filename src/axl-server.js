@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { loadManifest } from "./manifest.js";
-import { AxlEngine, PermissionError, BackendError } from "./engine.js";
+import { AxlEngine, PermissionError, BackendError, ValidationError } from "./engine.js";
 import { buildZodShape } from "./schema-utils.js";
 
 export function buildAxlServer(manifestPath, { sessionCookie, contextExtractor, engine, stateStore } = {}) {
@@ -43,6 +43,9 @@ function registerTools(server, manifest, engine, sessionCookie, contextExtractor
           const result = await engine.execute(actionName, args, context);
           return textResult(result);
         } catch (err) {
+          if (err instanceof ValidationError) {
+            return textResult({ error: "VALIDATION_ERROR", message: err.message }, true);
+          }
           if (err instanceof PermissionError) {
             return textResult({ error: "PERMISSION_DENIED", message: err.message }, true);
           }
@@ -98,6 +101,9 @@ function registerTools(server, manifest, engine, sessionCookie, contextExtractor
           const result = await engine.runWorkflow(workflowName, initialArgs || {}, context);
           return textResult(result);
         } catch (err) {
+          if (err instanceof ValidationError) {
+            return textResult({ error: "VALIDATION_ERROR", message: err.message }, true);
+          }
           if (err instanceof PermissionError) {
             return textResult({ error: "PERMISSION_DENIED", message: err.message }, true);
           }

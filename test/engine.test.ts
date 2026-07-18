@@ -162,4 +162,54 @@ describe('AxlEngine', () => {
       await expect(engine.runWorkflow('missing_binding_workflow', {}, null)).rejects.toThrow(/invalid initial arguments.*\"id\"/is);
     });
   });
+
+  describe('Workflow IF/ELSE branching', () => {
+    it('evaluates IF branch correctly against step outputs', async () => {
+      manifest.actions.step_gate = { permission: 'PUBLIC', endpoint: { path: '/gate', method: 'GET' }, input: {} };
+      manifest.actions.step_then = { permission: 'PUBLIC', endpoint: { path: '/then', method: 'GET' }, input: {} };
+      manifest.actions.step_else = { permission: 'PUBLIC', endpoint: { path: '/else', method: 'GET' }, input: {} };
+      manifest.workflows.push({
+        name: 'test_branch_workflow',
+        steps: [
+          'step_gate',
+          { if: 'step_gate.success', then: ['step_then'], else: ['step_else'] }
+        ]
+      });
+
+      engine._executeHttp = vi.fn().mockImplementation(async (actionName) => {
+        if (actionName === 'step_gate') return { success: true };
+        return { done: true };
+      });
+
+      await engine.runWorkflow('test_branch_workflow', {}, null);
+      
+      expect(engine._executeHttp).toHaveBeenCalledWith('step_gate', expect.anything(), expect.anything(), null);
+      expect(engine._executeHttp).toHaveBeenCalledWith('step_then', expect.anything(), expect.anything(), null);
+      expect(engine._executeHttp).not.toHaveBeenCalledWith('step_else', expect.anything(), expect.anything(), null);
+    });
+
+    it('evaluates ELSE branch correctly against step outputs', async () => {
+      manifest.actions.step_gate = { permission: 'PUBLIC', endpoint: { path: '/gate', method: 'GET' }, input: {} };
+      manifest.actions.step_then = { permission: 'PUBLIC', endpoint: { path: '/then', method: 'GET' }, input: {} };
+      manifest.actions.step_else = { permission: 'PUBLIC', endpoint: { path: '/else', method: 'GET' }, input: {} };
+      manifest.workflows.push({
+        name: 'test_branch_workflow_false',
+        steps: [
+          'step_gate',
+          { if: 'step_gate.success', then: ['step_then'], else: ['step_else'] }
+        ]
+      });
+
+      engine._executeHttp = vi.fn().mockImplementation(async (actionName) => {
+        if (actionName === 'step_gate') return { success: false };
+        return { done: true };
+      });
+
+      await engine.runWorkflow('test_branch_workflow_false', {}, null);
+      
+      expect(engine._executeHttp).toHaveBeenCalledWith('step_gate', expect.anything(), expect.anything(), null);
+      expect(engine._executeHttp).not.toHaveBeenCalledWith('step_then', expect.anything(), expect.anything(), null);
+      expect(engine._executeHttp).toHaveBeenCalledWith('step_else', expect.anything(), expect.anything(), null);
+    });
+  });
 });

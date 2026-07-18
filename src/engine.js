@@ -142,6 +142,14 @@ export class AxlEngine extends EventEmitter {
   async execute(actionName, args, context) {
     const actionDef = this.getActionDef(actionName);
     this.checkPermission(actionDef, context);
+    
+    try {
+      const schema = z.object(buildZodShape(actionDef.input));
+      schema.parse(args || {});
+    } catch (err) {
+      throw new ValidationError(`Validation failed for action "${actionName}": ${err.message}`);
+    }
+
     await this._checkRateLimit(actionName, context);
 
     let cacheKey;
@@ -278,9 +286,9 @@ export class AxlEngine extends EventEmitter {
       
       if (typeof step === 'object' && step.if) {
         const parts = step.if.split('.');
-        let conditionValue = state.args;
-        for (const p of parts) {
-          conditionValue = conditionValue?.[p];
+        let conditionValue = state.stepOutputs[parts[0]];
+        for (let i = 1; i < parts.length; i++) {
+          conditionValue = conditionValue?.[parts[i]];
         }
         
         state.remainingSteps.shift();
@@ -369,9 +377,10 @@ export class AxlEngine extends EventEmitter {
     
     await this.state.delete("pausedWorkflows", token);
     
+    const step = state.remainingSteps[0];
+    const actionName = typeof step === "string" ? step : step.action;
+
     if (result && typeof result === "object") {
-      const step = state.remainingSteps[0];
-      const actionName = typeof step === "string" ? step : step.action;
       state.stepOutputs[actionName] = result;
     }
     
@@ -382,6 +391,7 @@ export class AxlEngine extends EventEmitter {
 }
 
 export class PermissionError extends Error {}
+export class ValidationError extends Error {}
 export class BackendError extends Error {
   constructor(message, status, body) {
     super(message);

@@ -69,6 +69,22 @@ describe("REST Adapter", () => {
     expect(body.id).toBeDefined();
   });
 
+  it("returns VALIDATION_ERROR for action missing required input", async () => {
+    // create_project requires 'name'
+    const res = await fetch(`http://localhost:${REST_PORT}/actions/create_project`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${userSession}`
+      },
+      body: JSON.stringify({}) // Missing name
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("VALIDATION_ERROR");
+  });
+
   it("executes a workflow with correct data binding", async () => {
     // Register another user for isolation
     const regRes = await fetch(`http://localhost:${TEST_BACKEND_PORT}/api/auth/register`, {
@@ -147,6 +163,69 @@ describe("REST Adapter", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe("VALIDATION_ERROR");
+  });
+
+  it("resume endpoint validates required fields", async () => {
+    const res = await fetch(`http://localhost:${REST_PORT}/workflows/resume`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({})
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("VALIDATION_ERROR");
+  });
+
+  it("can resume a paused workflow via /workflows/resume", async () => {
+    // 0. Create a project and task to delete
+    const pRes = await fetch(`http://localhost:${REST_PORT}/actions/create_project`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${userSession}` },
+      body: JSON.stringify({ name: "To Delete" })
+    });
+    const p = await pRes.json();
+    
+    const tRes = await fetch(`http://localhost:${REST_PORT}/actions/create_task`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${userSession}` },
+      body: JSON.stringify({ project_id: p.id, title: "Task to delete" })
+    });
+    const t = await tRes.json();
+
+    // 1. Start an OTP-gated workflow
+    const wfRes = await fetch(`http://localhost:${REST_PORT}/workflows/ProjectDeletion`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${userSession}`
+      },
+      body: JSON.stringify({ task_id: t.id })
+    });
+    
+    expect(wfRes.status).toBe(200);
+    const wfState = await wfRes.json();
+    expect(wfState.confirmationRequired).toBe(true);
+    
+    // 2. Resume it using the token and OTP
+    const resumeRes = await fetch(`http://localhost:${REST_PORT}/workflows/resume`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${userSession}`
+      },
+      body: JSON.stringify({
+        token: wfState.token,
+        otp: wfState.otp_demo_only
+      })
+    });
+    
+    if (resumeRes.status !== 200) {
+      console.log(await resumeRes.text());
+    }
+    expect(resumeRes.status).toBe(200);
+    const resumeState = await resumeRes.json();
+    expect(resumeState.status).toBe("COMPLETED");
   });
 
   it("returns PERMISSION_DENIED for malformed/garbage token", async () => {

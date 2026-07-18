@@ -73,4 +73,25 @@ describe("Formatter", () => {
     expect(result).toContain("  OUTPUT List<Project>");
     expect(result).toContain("  ENDPOINT GET /projects");
   });
+
+  it("should format nested INPUT blocks correctly", () => {
+    const input = [
+      "ACTION create_user",
+      "INPUT",
+      "name : String",
+      "email : String",
+      "OUTPUT User",
+      "ENDPOINT POST /users"
+    ].join("\n");
+
+    const result = formatFlowSource(input);
+
+    const lines = result.split("\n").filter(l => l.trim().length > 0);
+    expect(lines[0]).toBe("ACTION create_user");
+    expect(lines[1]).toBe("  INPUT");
+    expect(lines[2]).toBe("    name : String");
+    expect(lines[3]).toBe("    email : String");
+    expect(lines[4]).toBe("  OUTPUT User");
+    expect(lines[5]).toBe("  ENDPOINT POST /users");
+  });
 });

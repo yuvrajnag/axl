@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { loadManifest } from "./manifest.js";
-import { AxlEngine, PermissionError, BackendError } from "./engine.js";
+import { AxlEngine, PermissionError, BackendError, ValidationError } from "./engine.js";
 
 /**
  * Builds an Express Router exposing plain HTTP/JSON endpoints for AXL actions,
@@ -47,6 +47,9 @@ export function buildRestAdapter(manifestPath, { contextExtractor, engine, state
    * matching the same error semantics as the MCP path.
    */
   function sendError(res, err) {
+    if (err instanceof ValidationError) {
+      return res.status(400).json({ error: "VALIDATION_ERROR", message: err.message });
+    }
     if (err instanceof PermissionError) {
       return res.status(403).json({ error: "PERMISSION_DENIED", message: err.message });
     }
@@ -73,6 +76,20 @@ export function buildRestAdapter(manifestPath, { contextExtractor, engine, state
     try {
       const context = getContext();
       const result = await actualEngine.execute(req.params.actionName, req.body || {}, context);
+      res.json(result);
+    } catch (err) {
+      sendError(res, err);
+    }
+  });
+
+  // ---- POST /workflows/resume ----
+  router.post("/workflows/resume", async (req, res) => {
+    try {
+      const { token, otp } = req.body || {};
+      if (!token || !otp) {
+        return res.status(400).json({ error: "VALIDATION_ERROR", message: "Both 'token' and 'otp' are required." });
+      }
+      const result = await actualEngine.resumeWorkflow(token, otp);
       res.json(result);
     } catch (err) {
       sendError(res, err);

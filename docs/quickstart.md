@@ -19,14 +19,7 @@ mkdir my-first-axl && cd my-first-axl
 axl init -y
 ```
 
-### Step 3: Install Dependencies
-The `axl init` command scaffolds a standard `package.json`. Install the runtime dependencies:
-
-```bash
-npm install
-```
-
-### Step 4: Compile the Flow Files
+### Step 3: Compile the Flow Files
 AXL is a compiled language. The compiler validates your `.flow` files, catches syntax and type errors, and generates the `manifest.json` engine map.
 
 ```bash
@@ -34,7 +27,7 @@ axl compile
 ```
 *You should see a success message indicating the compilation took mere milliseconds.*
 
-### Step 5: Serve the Engine
+### Step 4: Serve the Engine
 Start the execution engine. AXL will automatically boot both the REST API and the Model Context Protocol (MCP) endpoints simultaneously.
 
 ```bash
@@ -46,9 +39,9 @@ You should see output similar to this:
   AXL Server
   [OK] Running (MCP + REST)
 
-  Health        http://localhost:3960/health
-  MCP Endpoint  http://localhost:3960/mcp
-  REST API      http://localhost:3960/actions/:name
+  Health        http://localhost:3939/health
+  MCP Endpoint  http://localhost:3939/mcp
+  REST API      http://localhost:3939/actions/:name
 ```
 
 ---
@@ -59,7 +52,7 @@ You should see output similar to this:
 Open a new terminal window and hit the dynamically generated REST API endpoint. Assuming the scaffolded project includes a `list_projects` action:
 
 ```bash
-curl -s -X POST http://localhost:3960/actions/list_projects \
+curl -s -X POST http://localhost:3939/actions/list_projects \
   -H "Content-Type: application/json" \
   -d "{}"
 ```

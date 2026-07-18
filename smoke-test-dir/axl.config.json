@@ -1,0 +1,6 @@
+{
+  "name": "smoke-test-dir",
+  "flowDir": "./flow",
+  "outDir": "./build",
+  "generatedDir": "./generated"
+}
