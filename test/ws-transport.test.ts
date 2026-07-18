@@ -18,49 +18,78 @@ describe("WebSocket Transport", () => {
     await new Promise(r => setTimeout(r, 1000));
   });
 
-  it("should connect, receive events, and respond to ping", async () => {
+  it("should connect, authenticate via query token, and isolate events", async () => {
     return new Promise<void>((resolve, reject) => {
-      const ws = new WebSocket(`ws://localhost:${PORT}/ws`);
-      let pongReceived = false;
-      let eventReceived = false;
+      // Connect two clients with different tokens via query params
+      const wsA = new WebSocket(`ws://localhost:${PORT}/ws?token=token_a`);
+      const wsB = new WebSocket(`ws://localhost:${PORT}/ws?token=token_b`);
+      
+      let eventsA: any[] = [];
+      let eventsB: any[] = [];
 
-      ws.on("open", () => {
-        // Send a ping message
-        ws.send(JSON.stringify({ type: "ping" }));
-      });
-
-      ws.on("message", async (data) => {
-        const msg = JSON.parse(data.toString());
-
-        if (msg.type === "pong") {
-          pongReceived = true;
-          
-          // Now inject an event via the POST /events endpoint
-          const res = await fetch(`http://localhost:${PORT}/events`, {
+      let openCount = 0;
+      const checkOpen = () => {
+        openCount++;
+        if (openCount === 2) {
+          // Both connected. Let's trigger an action for client A via REST.
+          // This will emit `action.started` and `action.completed` scoped to Client A.
+          fetch(`http://localhost:${PORT}/actions/list_projects`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": "Bearer test-session"
+              "Authorization": "Bearer token_a"
             },
-            body: JSON.stringify({ type: "payment.completed", data: { id: 123 } })
-          });
-          expect(res.ok).toBe(true);
+            body: JSON.stringify({})
+          }).catch(reject);
         }
+      };
 
-        if (msg.type === "payment.completed" && msg.data?.id === 123) {
-          eventReceived = true;
-        }
+      wsA.on("open", checkOpen);
+      wsB.on("open", checkOpen);
 
-        if (pongReceived && eventReceived) {
-          ws.close();
-          resolve();
+      wsA.on("message", (data) => {
+        const msg = JSON.parse(data.toString());
+        // ignore pong
+        if (msg.type !== "pong") {
+          eventsA.push(msg);
+          // Assert that the sessionCookie was stripped from the wire
+          if (msg.data && msg.data.context) {
+            expect(msg.data.context.sessionCookie).toBeUndefined();
+          }
         }
       });
 
-      ws.on("error", reject);
+      wsB.on("message", (data) => {
+        const msg = JSON.parse(data.toString());
+        if (msg.type !== "pong") {
+          eventsB.push(msg);
+        }
+      });
+
+      wsA.on("error", reject);
+      wsB.on("error", reject);
       
-      // Safety timeout
-      setTimeout(() => reject(new Error("Timeout waiting for ws messages")), 5000);
+      // Wait a bit to ensure all events settle
+      setTimeout(() => {
+        try {
+          // Client A should have received the action events
+          expect(eventsA.length).toBeGreaterThan(0);
+          const startedEvent = eventsA.find(e => e.type === "action.started");
+          expect(startedEvent).toBeDefined();
+
+          // Client B should not receive Client A's events
+          if (eventsB.length !== 0) {
+            console.error("Events B received:", JSON.stringify(eventsB, null, 2));
+          }
+          expect(eventsB.length).toBe(0);
+
+          wsA.close();
+          wsB.close();
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      }, 1500);
     });
   });
 });

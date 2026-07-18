@@ -80,18 +80,24 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
 
   // Shared context extraction: parses session cookie, idempotency key, and IP
   // from request headers. Used identically by both MCP and REST transports.
-  function extractContext(req: express.Request) {
+  function extractContext(req: express.Request | import("http").IncomingMessage) {
     const authHeader = req.headers.authorization;
     let sessionCookie: string | undefined;
+    const cookieKey = options.cookieKey || "sid";
     
     if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
       const token = authHeader.substring(7).trim();
       // The backend expects a Cookie header in the format "key=value". 
       // If the client sends a raw bearer token, we wrap it using the configured cookieKey (default: "sid").
-      const cookieKey = options.cookieKey || "sid";
       sessionCookie = token.includes("=") ? token : `${cookieKey}=${token}`;
     } else if (req.headers["x-axl-session"]) {
       sessionCookie = req.headers["x-axl-session"] as string;
+    } else if (req.url && req.url.includes("token=")) {
+      const match = req.url.match(/[?&]token=([^&]+)/);
+      if (match) {
+        const token = decodeURIComponent(match[1]);
+        sessionCookie = token.includes("=") ? token : `${cookieKey}=${token}`;
+      }
     }
 
     const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
@@ -230,25 +236,15 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
   }
 
   registry.register("WebSocket", (app: express.Express, { engine, manifest, httpServer }: any) => {
-    app.post("/events", express.json(), (req: express.Request, res: express.Response) => {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
-        return res.status(401).json({ error: "Missing or invalid bearer token" });
-      }
-      if (!req.body || !req.body.type) {
-        return res.status(400).json({ error: "Missing type in body" });
-      }
-      engine.emitEvent(req.body.type, req.body.data);
-      res.json({ success: true });
-    });
-
     const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
-    const connectedWsClients = new Map<string, { ws: any, lastHeartbeat: number }>();
+    const connectedWsClients = new Map<string, { ws: any, lastHeartbeat: number, context: any }>();
 
-    wss.on("connection", async (ws) => {
+    wss.on("connection", async (ws, req) => {
       const clientId = randomUUID();
+      const context = extractContext(req);
+
       await withWsLock(`wsClient:${clientId}`, async () => {
-        connectedWsClients.set(clientId, { ws, lastHeartbeat: Date.now() });
+        connectedWsClients.set(clientId, { ws, lastHeartbeat: Date.now(), context });
       });
 
       ws.on("message", async (msg) => {
@@ -273,9 +269,21 @@ export async function serve(outDir: string, options: { port?: number, sessionTim
 
     engine.on("event", async (eventPayload: any) => {
       const clients = Array.from(connectedWsClients.values());
-      const payloadStr = JSON.stringify(eventPayload);
+      const eventContext = eventPayload.data?.context || {};
+      
+      const payloadToBroadcast = JSON.parse(JSON.stringify(eventPayload));
+      if (payloadToBroadcast.data?.context) {
+        delete payloadToBroadcast.data.context.sessionCookie;
+      }
+      const payloadStr = JSON.stringify(payloadToBroadcast);
+      
       for (const client of clients) {
         if (client.ws.readyState === 1) { // OPEN
+          if (eventContext.sessionCookie) {
+            if (client.context.sessionCookie !== eventContext.sessionCookie) continue;
+          } else if (eventContext.ip) {
+            if (client.context.ip !== eventContext.ip) continue;
+          }
           client.ws.send(payloadStr);
         }
       }

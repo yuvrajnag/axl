@@ -228,6 +228,24 @@ describe("REST Adapter", () => {
     expect(resumeState.status).toBe("COMPLETED");
   });
 
+  it("returns VALIDATION_ERROR (400) for invalid workflow resume token", async () => {
+    const res = await fetch(`http://localhost:${REST_PORT}/workflows/resume`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${userSession}`
+      },
+      body: JSON.stringify({
+        token: "invalid-or-expired-token",
+        otp: "123456"
+      })
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("VALIDATION_ERROR");
+  });
+
   it("returns PERMISSION_DENIED for malformed/garbage token", async () => {
     const res = await fetch(`http://localhost:${REST_PORT}/actions/create_project`, {
       method: "POST",

@@ -137,11 +137,21 @@ AXL provides standardized error responses across all transports.
 
 ---
 
-## 7. Future Extensibility: WebSockets
+## 7. WebSockets (Live Events)
 
-The AXL Transport Layer is designed to be pluggable. In a future major release, a WebSocket transport will be introduced for real-time bidirectional events (e.g., streaming workflow updates).
+The AXL Transport Layer includes a WebSocket transport for real-time bidirectional events (e.g., streaming workflow updates). 
+It abides by the "Serve Everything" philosophy and is mounted automatically alongside REST and MCP without requiring any CLI flags. Its endpoint is broadcasted in `/.well-known/axl`.
 
-When introduced, the WebSocket transport will abide by the "Serve Everything" philosophy. It will be mounted automatically alongside REST and MCP without requiring any CLI flags, and its existence will be broadcasted in `/.well-known/axl`.
+### Authentication
+Because browser-native WebSockets cannot send `Authorization` or custom headers during the handshake, authentication is performed via a short-lived query string parameter:
+
+```
+ws://api.example.com/ws?token=<session_token>
+```
+If the token is missing or invalid, the WebSocket connection will be immediately closed or the client will only receive public events.
+
+### Scoping & Privacy
+The server scopes all broadcasted events based on the authenticated context. A client will only receive events (such as `action.started` or `workflow.completed`) that belong to its own session. Sensitive credentials (like `sessionCookie`) are explicitly stripped from payloads before transmission.
 
 ---
 

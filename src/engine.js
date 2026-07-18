@@ -368,7 +368,7 @@ export class AxlEngine extends EventEmitter {
   async resumeWorkflow(token, submittedOtp) {
     const state = await this.state.get("pausedWorkflows", token);
     if (!state) {
-      throw new Error("Invalid or expired workflow run token.");
+      throw new ValidationError("Invalid or expired workflow run token.");
     }
     
     // This will throw if OTP is incorrect or expired.
